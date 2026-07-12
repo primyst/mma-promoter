@@ -34,10 +34,14 @@ export function simulateFight(
   const scoreA = computeFightScore(fighterA);
   const scoreB = computeFightScore(fighterB);
 
-  // Random roll so favorites can still lose (upsets matter for a promoter sim)
-  const totalScore = scoreA + scoreB;
+  // Random roll so favorites can still lose (upsets matter for a promoter sim),
+  // but scores are squared first so a real stat/momentum edge actually shows up
+  // as a real edge in win probability, instead of near-coinflip territory.
+  const sharpenedA = Math.pow(scoreA, 1.8);
+  const sharpenedB = Math.pow(scoreB, 1.8);
+  const totalScore = sharpenedA + sharpenedB;
   const roll = Math.random() * totalScore;
-  const aWins = roll < scoreA;
+  const aWins = roll < sharpenedA;
 
   const winner = aWins ? fighterA : fighterB;
   const loser = aWins ? fighterB : fighterA;
