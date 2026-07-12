@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { getBookableFighters, validateMatchup } from "@/lib/booking";
 import { Fighter, BookedFight } from "@/types/game";
@@ -75,6 +76,7 @@ function FighterRow({
 // ============================================
 
 export default function BookingScreen() {
+  const router = useRouter();
   const roster = useGameStore((s) => s.roster);
   const draftCard = useGameStore((s) => s.draftCard);
   const addFightToDraft = useGameStore((s) => s.addFightToDraft);
@@ -137,6 +139,7 @@ export default function BookingScreen() {
       setSubmitError(result.errors);
     } else {
       setSubmitError(null);
+      router.push("/results");
     }
   }
 
