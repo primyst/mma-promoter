@@ -146,6 +146,10 @@ export default function BookingScreen() {
     }
   }
 
+  function handleSkipWeek() {
+    router.push("/results");
+  }
+
   const rosterMap = useMemo(
     () => new Map(roster.map((f) => [f.id, f])),
     [roster]
@@ -154,14 +158,22 @@ export default function BookingScreen() {
   return (
     <div className="min-h-screen bg-black text-white pb-24">
       {/* Header */}
-      <div className="px-4 pt-6 pb-4 border-b border-neutral-800">
-        <h1 className="text-lg font-semibold flex items-center gap-2">
-          <Swords className="w-5 h-5" />
-          Book Fight Card
-        </h1>
-        <p className="text-xs text-neutral-500 mt-1">
-          {bookable.length} of {roster.length} fighters available this week
-        </p>
+      <div className="px-4 pt-6 pb-4 border-b border-neutral-800 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold flex items-center gap-2">
+            <Swords className="w-5 h-5" />
+            Book Fight Card
+          </h1>
+          <p className="text-xs text-neutral-500 mt-1">
+            {bookable.length} of {roster.length} fighters available this week
+          </p>
+        </div>
+        <button
+          onClick={handleSkipWeek}
+          className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5 shrink-0"
+        >
+          Skip Week
+        </button>
       </div>
 
       {/* Fighter picker overlay */}
