@@ -32,15 +32,23 @@ function classifyFight(
   loser: Fighter,
   outcome: FightOutcome
 ): FightNarrative {
-  const winnerWasFavorite =
-    (winner.ranking ?? 99) <= (loser.ranking ?? 99) || winner.isChampion;
+  // Champion always counts as favorite. Otherwise compare ranking with a
+  // buffer — being one spot better isn't really "the favorite," it's a
+  // pick 'em. Only count as favorite if the gap is real (2+ spots).
+  const winnerRank = winner.ranking ?? 50;
+  const loserRank = loser.ranking ?? 50;
+  const rankGap = loserRank - winnerRank; // positive = winner was better ranked
 
-  if (!winnerWasFavorite) return "upset";
+  const winnerWasFavorite = winner.isChampion || rankGap >= 2;
+  const closeRanking = Math.abs(rankGap) < 2;
+
+  if (!winnerWasFavorite && !closeRanking) return "upset";
 
   if (outcome.method !== "Decision" && outcome.round <= 2) return "brutal_finish";
 
-  const rankGap = Math.abs((winner.ranking ?? 50) - (loser.ranking ?? 50));
-  if (rankGap >= 5) return "squash";
+  // Squash requires both a big ranking gap AND a decisive finish —
+  // a close decision between a #1 and #7 isn't a squash, it's just a fight.
+  if (rankGap >= 6 && outcome.method !== "Decision") return "squash";
 
   if (outcome.method === "Decision") return "close_decision";
 
@@ -57,28 +65,45 @@ const WINNER_TWEET_FRAGMENTS: Record<FightNarrative, string[]> = {
     "Nobody believed in me except my team. Book the next one.",
     "Underdog no more. I told y'all.",
     "Respect is earned, not given. Just earned mine.",
+    "Everybody had me losing tonight. Check the scoreboard.",
+    "Bet against me one more time, I dare you.",
+    "This is what happens when you sleep on the wrong guy.",
+    "Doubt me again, I'll do it again.",
   ],
   brutal_finish: [
     "Lights out. Next.",
     "That's what happens when you disrespect me.",
     "I told him it wouldn't go long.",
     "Business handled. Who's next.",
+    "Told my team I'd end it early. Promise kept.",
+    "Some people learn the hard way.",
+    "Fast work tonight. On to bigger things.",
+    "Didn't even need the judges for that one.",
   ],
   close_decision: [
     "Wasn't pretty but a win's a win.",
     "Tough fight, tougher man. On to the next.",
     "Give me a real challenge next time.",
     "Ready to run it back if he wants smoke.",
+    "Close one but I'll take it every time.",
+    "Not my cleanest performance, still got the W.",
+    "Give credit where it's due, that was a battle.",
+    "Judges saw what I saw. On to the next one.",
   ],
   dominant_win: [
     "Just another day at the office.",
     "Told y'all this was easy work.",
     "Ready for the real competition now.",
+    "Nothing to it. Book the next name.",
+    "Another one in the books, no drama.",
+    "That's how it's supposed to look.",
   ],
   squash: [
     "Give me someone in my league next time.",
     "That wasn't a fight, that was a paycheck.",
     "I need real challenges, not tune-ups.",
+    "Somebody book me an actual test next time.",
+    "That was a formality, not a fight.",
   ],
 };
 
@@ -87,24 +112,33 @@ const LOSER_TWEET_FRAGMENTS: Record<FightNarrative, string[]> = {
     "No excuses. Back to the drawing board.",
     "Didn't see that coming. Respect to him, I'll be back.",
     "Hurts, but I'll be better for it.",
+    "Give him credit, he showed up tonight.",
+    "That one stings. Time to regroup.",
+    "Wasn't my night. Back in the gym tomorrow.",
   ],
   brutal_finish: [
     "Caught me clean. Happens to everyone.",
     "I'll be back stronger, watch.",
     "Not the ending I wanted but I'll learn from it.",
+    "He got me. Credit where it's due.",
+    "Rough one. Already looking ahead.",
   ],
   close_decision: [
     "Thought I did enough. Judges saw it different.",
     "Close one. Run it back anytime.",
     "I'll take that on the chin, close fight though.",
+    "Felt like I won that one, but it's not my call.",
+    "Battle either way. Respect to him.",
   ],
   dominant_win: [
     "Wasn't my night. Back to the gym.",
     "He was just better today. I'll be back.",
+    "Nothing to say, he outworked me.",
   ],
   squash: [
     "Took the fight on short notice, no excuses though.",
     "Not my best performance, back to work.",
+    "Off night. I'll be better next time out.",
   ],
 };
 
@@ -118,22 +152,32 @@ const NEWS_HEADLINE_TEMPLATES: Record<FightNarrative, ((w: Fighter, l: Fighter, 
   upset: [
     (w, l) => `UPSET: ${w.name} shocks the division with a win over ${l.name}`,
     (w, l) => `${w.name} stuns everyone, defeats heavily favored ${l.name}`,
+    (w, l) => `Nobody saw it coming: ${w.name} takes down ${l.name}`,
+    (w, l) => `${l.name} caught off guard as ${w.name} pulls the upset`,
   ],
   brutal_finish: [
     (w, l, o) => `${w.name} ends it early, finishes ${l.name} via ${o.method} in round ${o.round}`,
     (w, l) => `Brutal night for ${l.name} as ${w.name} secures a violent finish`,
+    (w, l, o) => `${w.name} sends a message with a round ${o.round} finish over ${l.name}`,
+    (w, l) => `Vicious performance from ${w.name} puts ${l.name} away in a hurry`,
   ],
   close_decision: [
     (w, l) => `${w.name} edges out ${l.name} in a fight that could've gone either way`,
     (w, l) => `Split opinions as ${w.name} takes a close decision over ${l.name}`,
+    (w, l) => `Instant classic: ${w.name} and ${l.name} go the distance in a nail-biter`,
+    (w, l) => `Judges give it to ${w.name} after a razor-close bout with ${l.name}`,
   ],
   dominant_win: [
     (w, l) => `${w.name} handles business, defeats ${l.name} as expected`,
     (w, l) => `Another win for ${w.name}, cruises past ${l.name}`,
+    (w, l) => `${w.name} keeps rolling with a solid win over ${l.name}`,
+    (w, l) => `As expected, ${w.name} gets past ${l.name} without much trouble`,
   ],
   squash: [
     (w, l) => `Questions raised over matchmaking as ${w.name} steamrolls overmatched ${l.name}`,
     (w, l) => `${w.name} makes quick work of an outclassed ${l.name}`,
+    (w, l) => `Mismatch on paper proves true as ${w.name} dismantles ${l.name}`,
+    (w, l) => `Fans call for better competition after ${w.name} blows past ${l.name}`,
   ],
 };
 
