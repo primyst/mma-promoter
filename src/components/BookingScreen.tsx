@@ -59,8 +59,11 @@ function FighterRow({
             )}
           </div>
           <div className="text-xs text-neutral-500">
-            {fighter.wins}-{fighter.losses}-{fighter.draws}
+            {fighter.weightClass} · {fighter.wins}-{fighter.losses}-{fighter.draws}
             {fighter.ranking != null ? ` · #${fighter.ranking}` : ""}
+          </div>
+          <div className="text-[10px] text-neutral-600 mt-0.5">
+            STR {fighter.striking} · GRP {fighter.grappling} · CHIN {fighter.chin}
           </div>
         </div>
       </div>
