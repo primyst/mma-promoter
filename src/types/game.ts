@@ -109,6 +109,22 @@ export interface Promotion {
 }
 
 // ============================================
+// FEED (news + social posts)
+// ============================================
+
+export type FeedItemType = "tweet" | "news" | "callout";
+
+export interface FeedItem {
+  id: string;
+  type: FeedItemType;
+  week: number;
+  authorName: string; // fighter name, or outlet name like "MMA Wire"
+  authorHandle?: string; // for tweets, e.g. "@ivanlarsen"
+  content: string;
+  relatedFighterIds: string[]; // for filtering/context
+}
+
+// ============================================
 // GAME STATE (root object, this is what gets persisted)
 // ============================================
 
@@ -116,7 +132,7 @@ export interface GameState {
   promotion: Promotion;
   roster: Fighter[];
   cards: FightCard[]; // history of all cards, past and scheduled
-  // feed: FeedItem[];     // v0.2 hook — news/tweets
+  feed: FeedItem[];
 
   scheduledCardId: string | null; // next card awaiting simulation
 }
