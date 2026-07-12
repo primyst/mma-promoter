@@ -10,6 +10,7 @@ import {
 } from "@/types/game";
 import { simulateCard } from "./fightSim";
 import { validateCard } from "./booking";
+import { generateFeedForCard } from "./feedGenerator";
 
 // ============================================
 // STORE SHAPE
@@ -50,6 +51,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   roster: [],
   cards: [],
+  feed: [],
   scheduledCardId: null,
   draftCard: [],
 
@@ -64,6 +66,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
       roster,
       cards: [],
+      feed: [],
       scheduledCardId: null,
     };
     set({ ...newState, draftCard: [] });
@@ -119,7 +122,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ---- week progression ----
   advanceWeek: () => {
-    const { scheduledCardId, cards, roster, promotion } = get();
+    const { scheduledCardId, cards, roster, promotion, feed } = get();
 
     let result: FightCardResult | null = null;
 
@@ -150,10 +153,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
           currentWeek: promotion.currentWeek + 1,
         };
 
+        const newFeedItems = generateFeedForCard(
+          outcomes,
+          card.fights,
+          updatedRoster,
+          promotion.currentWeek
+        );
+
         set({
           roster: updatedRoster,
           cards: updatedCards,
           promotion: updatedPromotion,
+          feed: [...newFeedItems, ...feed], // newest first
           scheduledCardId: null,
         });
 
@@ -190,6 +201,7 @@ function persistCurrentState(state: GameStore) {
     promotion: state.promotion,
     roster: state.roster,
     cards: state.cards,
+    feed: state.feed,
     scheduledCardId: state.scheduledCardId,
   });
 }
