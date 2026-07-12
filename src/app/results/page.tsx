@@ -12,6 +12,9 @@ import {
   DollarSign,
   ChevronRight,
   Crown,
+  MessageCircle,
+  Newspaper,
+  Megaphone,
 } from "lucide-react";
 
 // ============================================
@@ -22,6 +25,50 @@ function MethodIcon({ method }: { method: string }) {
   if (method === "KO/TKO") return <Zap className="w-4 h-4 text-red-500" />;
   if (method === "Submission") return <Hand className="w-4 h-4 text-purple-500" />;
   return <Scale className="w-4 h-4 text-neutral-400" />;
+}
+
+// ============================================
+// FEED PREVIEW (shows this week's reactions inline)
+// ============================================
+
+function FeedTypeIcon({ type }: { type: string }) {
+  if (type === "news") return <Newspaper className="w-3.5 h-3.5 text-blue-400" />;
+  if (type === "callout") return <Megaphone className="w-3.5 h-3.5 text-red-500" />;
+  return <MessageCircle className="w-3.5 h-3.5 text-neutral-400" />;
+}
+
+function FeedPreview({ week }: { week: number }) {
+  const feed = useGameStore((s) => s.feed);
+  const router = useRouter();
+  const thisWeek = feed.filter((f) => f.week === week).slice(0, 4);
+
+  if (thisWeek.length === 0) return null;
+
+  return (
+    <div className="px-4 py-2 space-y-2">
+      <h2 className="text-xs uppercase tracking-wide text-neutral-500 mb-1">
+        Reactions
+      </h2>
+      {thisWeek.map((item) => (
+        <div
+          key={item.id}
+          className="bg-neutral-900 border border-neutral-800 rounded-lg p-3"
+        >
+          <div className="flex items-center gap-1.5 mb-1">
+            <FeedTypeIcon type={item.type} />
+            <span className="text-xs font-medium">{item.authorName}</span>
+          </div>
+          <p className="text-xs text-neutral-300">{item.content}</p>
+        </div>
+      ))}
+      <button
+        onClick={() => router.push("/feed")}
+        className="text-xs text-neutral-500 underline"
+      >
+        See full feed
+      </button>
+    </div>
+  );
 }
 
 // ============================================
@@ -157,12 +204,7 @@ export default function ResultsScreen() {
         })}
       </div>
 
-      {mainEventOutcome && (
-        <div className="mx-4 mb-4 text-center text-xs text-neutral-500 px-2">
-          Fan reaction and news coverage lands in a future update — for now,
-          the numbers speak for themselves.
-        </div>
-      )}
+      <FeedPreview week={result.card.week} />
 
       {/* Sticky continue bar */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-black border-t border-neutral-800">
