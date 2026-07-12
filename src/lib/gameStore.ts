@@ -11,6 +11,7 @@ import {
 import { simulateCard } from "./fightSim";
 import { validateCard } from "./booking";
 import { generateFeedForCard } from "./feedGenerator";
+import { generateAmbientNews } from "./ambientNews";
 
 // ============================================
 // STORE SHAPE
@@ -159,12 +160,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
           updatedRoster,
           promotion.currentWeek
         );
+        const ambientItems = generateAmbientNews(updatedRoster, promotion.currentWeek);
 
         set({
           roster: updatedRoster,
           cards: updatedCards,
           promotion: updatedPromotion,
-          feed: [...newFeedItems, ...feed], // newest first
+          feed: [...ambientItems, ...newFeedItems, ...feed], // newest first
           scheduledCardId: null,
         });
 
@@ -181,9 +183,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
             : f.health,
       }));
 
+      const ambientItems = generateAmbientNews(tickedRoster, promotion.currentWeek);
+
       set({
         roster: tickedRoster,
         promotion: { ...promotion, currentWeek: promotion.currentWeek + 1 },
+        feed: [...ambientItems, ...feed],
       });
     }
 
