@@ -12,6 +12,7 @@ import { simulateCard } from "./fightSim";
 import { validateCard } from "./booking";
 import { generateFeedForCard } from "./feedGenerator";
 import { generateAmbientNews } from "./ambientNews";
+import { updateTitleHistory, initTitleHistoryFromRoster } from "./titleHistory";
 
 // ============================================
 // STORE SHAPE
@@ -53,6 +54,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   roster: [],
   cards: [],
   feed: [],
+  titleHistory: [],
   scheduledCardId: null,
   draftCard: [],
 
@@ -68,6 +70,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roster,
       cards: [],
       feed: [],
+      titleHistory: initTitleHistoryFromRoster(roster, 1),
       scheduledCardId: null,
     };
     set({ ...newState, draftCard: [] });
@@ -85,6 +88,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roster: saved.roster ?? [],
       cards: saved.cards ?? [],
       feed: saved.feed ?? [],
+      titleHistory: saved.titleHistory ?? [],
       scheduledCardId: saved.scheduledCardId ?? null,
     };
     set({ ...safeState, draftCard: [] });
@@ -133,7 +137,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ---- week progression ----
   advanceWeek: () => {
-    const { scheduledCardId, cards, roster, promotion, feed } = get();
+    const { scheduledCardId, cards, roster, promotion, feed, titleHistory } = get();
 
     let result: FightCardResult | null = null;
 
@@ -148,7 +152,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
           promotion.currentWeek
         );
 
-        const revenue = estimateRevenue(card, updatedRoster);
+        // Title lineage: uses `roster` (pre-fight state) to know who was
+        // champion going in, since updatedRoster's isChampion isn't flipped yet.
+        const newTitleHistory = updateTitleHistory(
+          card.fights,
+          outcomes,
+          roster,
+          titleHistory,
+          promotion.currentWeek
+        );
+
+        // Flip isChampion flags on the roster to match the new title history
+        const openReignByFighterId = new Map(
+          newTitleHistory
+            .filter((r) => r.endWeek === null)
+            .map((r) => [r.championId, r])
+        );
+        const rosterWithChampions = updatedRoster.map((f) => ({
+          ...f,
+          isChampion: openReignByFighterId.has(f.id),
+        }));
+
+        const revenue = estimateRevenue(card, rosterWithChampions);
 
         const updatedCard: FightCard = {
           ...card,
@@ -167,16 +192,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const newFeedItems = generateFeedForCard(
           outcomes,
           card.fights,
-          updatedRoster,
+          rosterWithChampions,
           promotion.currentWeek
         );
-        const ambientItems = generateAmbientNews(updatedRoster, promotion.currentWeek);
+        const ambientItems = generateAmbientNews(rosterWithChampions, promotion.currentWeek);
 
         set({
-          roster: updatedRoster,
+          roster: rosterWithChampions,
           cards: updatedCards,
           promotion: updatedPromotion,
           feed: [...ambientItems, ...newFeedItems, ...feed], // newest first
+          titleHistory: newTitleHistory,
           scheduledCardId: null,
         });
 
@@ -217,6 +243,7 @@ function persistCurrentState(state: GameStore) {
     roster: state.roster,
     cards: state.cards,
     feed: state.feed,
+    titleHistory: state.titleHistory,
     scheduledCardId: state.scheduledCardId,
   });
 }
