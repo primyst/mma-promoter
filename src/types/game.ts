@@ -151,17 +151,33 @@ export interface TitleReign {
 }
 
 // ============================================
+// FIGHT WEEK / INCIDENTS
+// ============================================
+
+export type IncidentChoice = "fine" | "let_it_slide" | "hype_it_up";
+
+export interface Incident {
+  id: string;
+  week: number;
+  fighterAId: string;
+  fighterBId: string;
+  fighterAName: string;
+  fighterBName: string;
+  description: string;
+  resolved: boolean;
+}
+
+// ============================================
 // GAME STATE (root object, this is what gets persisted)
 // ============================================
 
 export interface GameState {
   promotion: Promotion;
   roster: Fighter[];
-  cards: FightCard[]; // history of all cards, past and scheduled
+  cards: FightCard[]; // history AND future scheduled cards, keyed by card.week
   feed: FeedItem[];
   titleHistory: TitleReign[];
-
-  scheduledCardId: string | null; // next card awaiting simulation
+  pendingIncident: Incident | null;
 }
 
 // ============================================
