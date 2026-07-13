@@ -13,6 +13,12 @@ import { validateCard } from "./booking";
 import { generateFeedForCard } from "./feedGenerator";
 import { generateAmbientNews } from "./ambientNews";
 import { updateTitleHistory, initTitleHistoryFromRoster } from "./titleHistory";
+import {
+  checkWeightMoveEligibility,
+  applyWeightClassMove,
+  vacateTitle,
+} from "./weightClassMove";
+import { WeightClass } from "@/types/game";
 
 // ============================================
 // STORE SHAPE
@@ -32,6 +38,13 @@ interface GameStore extends GameState {
 
   // Week progression
   advanceWeek: () => FightCardResult | null;
+
+  // Weight class movement
+  moveFighterWeightClass: (
+    fighterId: string,
+    direction: "up" | "down",
+    targetClass: WeightClass
+  ) => { success: boolean; error?: string };
 }
 
 export interface FightCardResult {
@@ -230,6 +243,57 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     persistCurrentState(get());
     return result;
+  },
+
+  moveFighterWeightClass: (fighterId, direction, targetClass) => {
+    const { roster, titleHistory, feed, promotion } = get();
+    const fighter = roster.find((f) => f.id === fighterId);
+
+    if (!fighter) {
+      return { success: false, error: "Fighter not found" };
+    }
+
+    const eligibility = checkWeightMoveEligibility(fighter);
+    if (!eligibility.eligible) {
+      return { success: false, error: eligibility.reason };
+    }
+
+    const oldWeightClass = fighter.weightClass;
+    const { updatedFighter, vacatedTitle } = applyWeightClassMove(
+      fighter,
+      direction,
+      targetClass
+    );
+
+    const updatedRoster = roster.map((f) =>
+      f.id === fighterId ? updatedFighter : f
+    );
+
+    const updatedTitleHistory = vacatedTitle
+      ? vacateTitle(titleHistory, fighterId, promotion.currentWeek)
+      : titleHistory;
+
+    const newsContent = vacatedTitle
+      ? `${fighter.name} vacates the ${oldWeightClass} title, moving ${direction} to ${targetClass}.`
+      : `${fighter.name} announces a move ${direction} to ${targetClass}, leaving ${oldWeightClass} behind.`;
+
+    const newFeedItem = {
+      id: crypto.randomUUID(),
+      type: "news" as const,
+      week: promotion.currentWeek,
+      authorName: "MMA Wire",
+      content: newsContent,
+      relatedFighterIds: [fighterId],
+    };
+
+    set({
+      roster: updatedRoster,
+      titleHistory: updatedTitleHistory,
+      feed: [newFeedItem, ...feed],
+    });
+
+    persistCurrentState(get());
+    return { success: true };
   },
 }));
 
