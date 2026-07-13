@@ -77,7 +77,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   loadFromSave: () => {
     const saved = loadGame();
     if (!saved) return false;
-    set({ ...saved, draftCard: [] });
+    // Defensive defaults — protects against old saves created before a field
+    // (like `feed`) existed. Without this, a stale save silently breaks
+    // whatever new feature was added since it was created.
+    const safeState: GameState = {
+      promotion: saved.promotion,
+      roster: saved.roster ?? [],
+      cards: saved.cards ?? [],
+      feed: saved.feed ?? [],
+      scheduledCardId: saved.scheduledCardId ?? null,
+    };
+    set({ ...safeState, draftCard: [] });
     return true;
   },
 
