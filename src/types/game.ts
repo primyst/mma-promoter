@@ -101,13 +101,20 @@ export interface FightCard {
 // FIGHT RESULTS (output of the sim)
 // ============================================
 
+export interface JudgeScorecard {
+  judgeName: string;
+  winnerScore: number;
+  loserScore: number;
+}
+
 export interface FightOutcome {
   fightId: string;
   winnerId: string | null; // null if draw/no_contest
   result: FightResultType;
   method: FinishMethod;
   round: number;
-  // narrative: string;   // v0.2 hook — feeds the news/tweet generator
+  judgeScores?: JudgeScorecard[]; // present for decisions
+  summary?: string; // short flavor line describing how the fight went
 }
 
 // ============================================
