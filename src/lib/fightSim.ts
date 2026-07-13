@@ -49,14 +49,101 @@ export function simulateFight(
   const method = determineFinishMethod(winner, loser);
   const round = determineRound(method, rounds);
 
+  const judgeScores =
+    method === "Decision"
+      ? generateJudgeScorecards(winner, loser, rounds)
+      : undefined;
+
+  const summary = generateFightSummary(winner, loser, method, round);
+
   return {
     fightId: "", // caller sets this to the actual BookedFight id
     winnerId: winner.id,
     result: "win" as FightResultType,
     method,
     round,
+    judgeScores,
+    summary,
   };
 }
+
+// ============================================
+// JUDGE SCORECARDS (for decisions)
+// ============================================
+
+const JUDGE_NAMES = ["Adalene Cross", "Marcus Fields", "Priya Chandra"];
+
+/**
+ * Three judges score every round 10-9 (or 10-8 for a dominant round),
+ * biased toward whoever actually won but with enough independent variance
+ * that split decisions can happen — real judges don't always agree.
+ */
+function generateJudgeScorecards(
+  winner: Fighter,
+  loser: Fighter,
+  rounds: number
+): { judgeName: string; winnerScore: number; loserScore: number }[] {
+  return JUDGE_NAMES.map((judgeName) => {
+    let winnerTotal = 0;
+    let loserTotal = 0;
+
+    for (let round = 1; round <= rounds; round++) {
+      // Each judge independently leans toward the actual winner ~75% of the
+      // time per round — close enough for split decisions to occasionally
+      // happen, consistent enough that the "right" fighter usually wins.
+      const judgeFavorsWinner = Math.random() < 0.75;
+      if (judgeFavorsWinner) {
+        winnerTotal += 10;
+        loserTotal += 9;
+      } else {
+        winnerTotal += 9;
+        loserTotal += 10;
+      }
+    }
+
+    return { judgeName, winnerScore: winnerTotal, loserScore: loserTotal };
+  });
+}
+
+// ============================================
+// FIGHT SUMMARY (short flavor line)
+// ============================================
+
+const FINISH_SUMMARIES: Record<FinishMethod, string[]> = {
+  "KO/TKO": [
+    "landed a clean shot that put the lights out",
+    "battered their opponent against the fence until the ref stepped in",
+    "caught them cold with a perfectly timed strike",
+  ],
+  Submission: [
+    "worked for the finish on the ground until the tap came",
+    "locked in a tight submission with nowhere to go",
+    "took the fight to the mat and never let go",
+  ],
+  Decision: [
+    "out-worked their opponent over the full distance",
+    "controlled the pace but couldn't find the finish",
+    "grinded out a hard-fought distance win",
+  ],
+  DQ: ["won by disqualification after an illegal strike"],
+};
+
+function generateFightSummary(
+  winner: Fighter,
+  loser: Fighter,
+  method: FinishMethod,
+  round: number
+): string {
+  const options = FINISH_SUMMARIES[method];
+  const template = options[Math.floor(Math.random() * options.length)];
+
+  if (method === "Decision") {
+    return `${winner.name} ${template} against ${loser.name}.`;
+  }
+
+  return `${winner.name} ${template} in round ${round} against ${loser.name}.`;
+}
+
 
 /**
  * Weighted score used to bias the random roll.
