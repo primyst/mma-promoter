@@ -60,7 +60,7 @@ const CALLOUT_CHATTER_TEMPLATES = [
 export function generateAmbientNews(
   roster: Fighter[],
   week: number,
-  chance: number = 0.6
+  chance: number = 0.3
 ): FeedItem[] {
   if (!maybe(chance)) return [];
 
