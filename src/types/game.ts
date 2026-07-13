@@ -125,6 +125,19 @@ export interface FeedItem {
 }
 
 // ============================================
+// TITLE HISTORY
+// ============================================
+
+export interface TitleReign {
+  weightClass: WeightClass;
+  championId: string;
+  championName: string;
+  startWeek: number;
+  endWeek: number | null; // null = still reigning
+  defenses: number;
+}
+
+// ============================================
 // GAME STATE (root object, this is what gets persisted)
 // ============================================
 
@@ -133,6 +146,7 @@ export interface GameState {
   roster: Fighter[];
   cards: FightCard[]; // history of all cards, past and scheduled
   feed: FeedItem[];
+  titleHistory: TitleReign[];
 
   scheduledCardId: string | null; // next card awaiting simulation
 }
