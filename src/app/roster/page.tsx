@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { Fighter, WeightClass } from "@/types/game";
 import {
@@ -38,6 +39,7 @@ function statusLabel(fighter: Fighter): { text: string; color: string } {
 
 function RosterFighterRow({ fighter }: { fighter: Fighter }) {
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
   const status = statusLabel(fighter);
 
   return (
@@ -133,6 +135,13 @@ function RosterFighterRow({ fighter }: { fighter: Fighter }) {
               </div>
             </div>
           )}
+
+          <button
+            onClick={() => router.push(`/fighter/${fighter.id}`)}
+            className="w-full py-2 rounded-lg bg-neutral-800 text-xs font-medium"
+          >
+            View Full Profile
+          </button>
         </div>
       )}
     </div>
@@ -167,11 +176,19 @@ export default function RosterScreen() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
-      <div className="px-4 pt-6 pb-4 border-b border-neutral-800">
-        <h1 className="text-lg font-semibold">Rankings</h1>
-        <p className="text-xs text-neutral-500 mt-1">
-          {roster.length} fighters across {weightClasses.length} divisions
-        </p>
+      <div className="px-4 pt-6 pb-4 border-b border-neutral-800 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Rankings</h1>
+          <p className="text-xs text-neutral-500 mt-1">
+            {roster.length} fighters across {weightClasses.length} divisions
+          </p>
+        </div>
+        <button
+          onClick={() => router.push("/records")}
+          className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5 shrink-0"
+        >
+          Records
+        </button>
       </div>
 
       <div className="flex gap-2 px-4 py-3 overflow-x-auto">
