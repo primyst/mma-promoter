@@ -12,6 +12,19 @@ export type WeightClass =
   | "Light Heavyweight"
   | "Heavyweight";
 
+// Ordered lightest to heaviest — used to determine adjacent divisions
+// when a fighter moves up or down in weight.
+export const WEIGHT_CLASS_ORDER: WeightClass[] = [
+  "Flyweight",
+  "Bantamweight",
+  "Featherweight",
+  "Lightweight",
+  "Welterweight",
+  "Middleweight",
+  "Light Heavyweight",
+  "Heavyweight",
+];
+
 export type Momentum = "hot" | "neutral" | "cold";
 
 export type HealthStatus = "fine" | "nursing" | "injured";
