@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
+import { getAdjacentDivisions } from "@/lib/weightClassMove";
 import {
   Crown,
   Flame,
@@ -10,6 +11,8 @@ import {
   Minus,
   ArrowLeft,
   Trophy,
+  ArrowUpCircle,
+  ArrowDownCircle,
 } from "lucide-react";
 
 // ============================================
@@ -35,6 +38,10 @@ export default function FighterProfileScreen({
   const roster = useGameStore((s) => s.roster);
   const titleHistory = useGameStore((s) => s.titleHistory);
   const promotion = useGameStore((s) => s.promotion);
+  const moveFighterWeightClass = useGameStore((s) => s.moveFighterWeightClass);
+
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const [moveMessage, setMoveMessage] = useState<string | null>(null);
 
   const fighter = useMemo(
     () => roster.find((f) => f.id === fighterId),
@@ -45,6 +52,25 @@ export default function FighterProfileScreen({
     () => titleHistory.filter((r) => r.championId === fighterId),
     [titleHistory, fighterId]
   );
+
+  const adjacent = useMemo(
+    () => (fighter ? getAdjacentDivisions(fighter.weightClass) : { up: null, down: null }),
+    [fighter]
+  );
+
+  function handleMove(direction: "up" | "down") {
+    const target = direction === "up" ? adjacent.up : adjacent.down;
+    if (!target) return;
+
+    const result = moveFighterWeightClass(fighterId, direction, target);
+    if (!result.success) {
+      setMoveError(result.error ?? "Couldn't move weight class");
+      setMoveMessage(null);
+    } else {
+      setMoveError(null);
+      setMoveMessage(`Moved to ${target}. Settling in before next fight.`);
+    }
+  }
 
   if (!fighter) {
     return (
@@ -91,6 +117,39 @@ export default function FighterProfileScreen({
             {fighter.momentum}
           </span>
         </div>
+      </div>
+
+      {/* Weight class move */}
+      <div className="px-4 mb-4">
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleMove("down")}
+            disabled={!adjacent.down}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-neutral-700 text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowDownCircle className="w-3.5 h-3.5" />
+            Move to {adjacent.down ?? "—"}
+          </button>
+          <button
+            onClick={() => handleMove("up")}
+            disabled={!adjacent.up}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-neutral-700 text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowUpCircle className="w-3.5 h-3.5" />
+            Move to {adjacent.up ?? "—"}
+          </button>
+        </div>
+        {moveError && (
+          <p className="text-xs text-red-400 mt-2">{moveError}</p>
+        )}
+        {moveMessage && (
+          <p className="text-xs text-green-500 mt-2">{moveMessage}</p>
+        )}
+        {fighter.isChampion && (
+          <p className="text-xs text-yellow-500 mt-2">
+            Moving weight class will vacate the title.
+          </p>
+        )}
       </div>
 
       {/* Stats grid */}
