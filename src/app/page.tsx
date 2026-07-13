@@ -1,4 +1,5 @@
 "use client";
+
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { generateStarterRoster } from "@/lib/generateRoster";
@@ -8,27 +9,41 @@ export default function StartScreen() {
   const initNewGame = useGameStore((s) => s.initNewGame);
   const loadFromSave = useGameStore((s) => s.loadFromSave);
 
+  function handleContinue() {
+    if (loadFromSave()) {
+      router.push("/booking");
+    } else {
+      alert("No save found — start a New Game.");
+    }
+  }
+
+  function handleNewGame() {
+    initNewGame("My Promotion", generateStarterRoster());
+    router.push("/booking");
+  }
+
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4 px-6">
-      <h1 className="text-2xl font-bold">MMA Promoter</h1>
-      <button
-        onClick={() => {
-          if (loadFromSave()) router.push("/booking");
-          else alert("No save found");
-        }}
-        className="w-full py-3 bg-neutral-800 rounded-lg"
-      >
-        Continue
-      </button>
-      <button
-        onClick={() => {
-          initNewGame("My Promotion", generateStarterRoster());
-          router.push("/booking");
-        }}
-        className="w-full py-3 bg-red-600 rounded-lg"
-      >
-        New Game
-      </button>
+    <div
+      className="relative min-h-screen bg-cover bg-center flex flex-col items-center justify-end px-6 pb-16"
+      style={{ backgroundImage: "url(/home.jpg)" }}
+    >
+      {/* Dark gradient overlay so buttons stay readable over any image */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/70" />
+
+      <div className="relative z-10 w-full max-w-sm flex flex-col gap-3">
+        <button
+          onClick={handleContinue}
+          className="w-full py-3 bg-neutral-900/90 border border-neutral-700 text-white rounded-lg font-medium"
+        >
+          Continue
+        </button>
+        <button
+          onClick={handleNewGame}
+          className="w-full py-3 bg-red-600 text-white rounded-lg font-semibold"
+        >
+          New Game
+        </button>
+      </div>
     </div>
   );
 }
