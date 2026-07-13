@@ -15,6 +15,7 @@ import {
   X,
   Check,
   AlertTriangle,
+  Calendar,
 } from "lucide-react";
 
 // ============================================
@@ -81,10 +82,14 @@ function FighterRow({
 export default function BookingScreen() {
   const router = useRouter();
   const roster = useGameStore((s) => s.roster);
+  const promotion = useGameStore((s) => s.promotion);
+  const cards = useGameStore((s) => s.cards);
   const draftCard = useGameStore((s) => s.draftCard);
   const addFightToDraft = useGameStore((s) => s.addFightToDraft);
   const removeFightFromDraft = useGameStore((s) => s.removeFightFromDraft);
   const submitCard = useGameStore((s) => s.submitCard);
+
+  const [weeksAhead, setWeeksAhead] = useState(0);
 
   const [pickingFor, setPickingFor] = useState<"A" | "B" | null>(null);
   const [slotA, setSlotA] = useState<Fighter | null>(null);
@@ -137,11 +142,12 @@ export default function BookingScreen() {
   }
 
   function handleSubmit() {
-    const result = submitCard();
+    const result = submitCard(weeksAhead);
     if (!result.success) {
       setSubmitError(result.errors);
     } else {
       setSubmitError(null);
+      setWeeksAhead(0);
       router.push("/results");
     }
   }
@@ -155,8 +161,16 @@ export default function BookingScreen() {
     [roster]
   );
 
+  const upcomingCards = useMemo(
+    () =>
+      cards
+        .filter((c) => !c.isSimulated)
+        .sort((a, b) => a.week - b.week),
+    [cards]
+  );
+
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="min-h-screen bg-black text-white pb-36">
       {/* Header */}
       <div className="px-4 pt-6 pb-4 border-b border-neutral-800 flex items-center justify-between">
         <div>
@@ -277,6 +291,27 @@ export default function BookingScreen() {
           </div>
         )}
 
+        <div>
+          <p className="text-xs text-neutral-500 mb-1.5 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" /> Schedule for
+          </p>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {[0, 1, 2, 3, 4, 6, 8].map((w) => (
+              <button
+                key={w}
+                onClick={() => setWeeksAhead(w)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border shrink-0 ${
+                  weeksAhead === w
+                    ? "bg-white text-black border-white"
+                    : "border-neutral-700 text-neutral-400"
+                }`}
+              >
+                {w === 0 ? "This week" : `Week ${promotion.currentWeek + w}`}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <button
           onClick={handleAddFight}
           disabled={!slotA || !slotB || !matchup?.valid}
@@ -286,11 +321,48 @@ export default function BookingScreen() {
         </button>
       </div>
 
+      {/* Upcoming scheduled cards (calendar view) */}
+      {upcomingCards.length > 0 && (
+        <div className="px-4 py-4 border-t border-neutral-800 space-y-2">
+          <h2 className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
+            Upcoming Calendar
+          </h2>
+          {upcomingCards.map((card) => (
+            <div
+              key={card.id}
+              className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-neutral-300">
+                  Week {card.week}
+                  {card.week === promotion.currentWeek ? " (this week)" : ""}
+                </span>
+                <span className="text-[10px] text-neutral-500">
+                  {card.fights.length}{" "}
+                  {card.fights.length === 1 ? "fight" : "fights"}
+                </span>
+              </div>
+              {card.fights.map((fight) => {
+                const a = rosterMap.get(fight.fighterAId);
+                const b = rosterMap.get(fight.fighterBId);
+                return (
+                  <div key={fight.id} className="text-xs text-neutral-500">
+                    {a?.name} vs {b?.name}
+                    {fight.isTitleFight ? " · Title" : ""}
+                    {fight.isMainEvent ? " · Main" : ""}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Draft card list */}
       {draftCard.length > 0 && (
         <div className="px-4 py-4 border-t border-neutral-800 space-y-2">
           <h2 className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
-            This Week's Card
+            Draft Card ({weeksAhead === 0 ? "This week" : `Week ${promotion.currentWeek + weeksAhead}`})
           </h2>
           {draftCard.map((fight) => {
             const a = rosterMap.get(fight.fighterAId);
@@ -338,7 +410,7 @@ export default function BookingScreen() {
 
       {/* Sticky submit bar */}
       {draftCard.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-black border-t border-neutral-800">
+        <div className="fixed bottom-16 left-0 right-0 p-4 bg-black border-t border-neutral-800 z-30">
           <button
             onClick={handleSubmit}
             className="w-full py-3 rounded-lg bg-white text-black font-medium text-sm flex items-center justify-center gap-2"
