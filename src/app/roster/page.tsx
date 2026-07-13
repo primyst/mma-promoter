@@ -153,6 +153,7 @@ function RosterFighterRow({ fighter }: { fighter: Fighter }) {
 // ============================================
 
 export default function RosterScreen() {
+  const router = useRouter();
   const roster = useGameStore((s) => s.roster);
   const [activeClass, setActiveClass] = useState<WeightClass | null>(null);
 
