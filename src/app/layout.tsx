@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import TabBar from "@/components/TabBar";
+import IncidentModal from "@/components/IncidentModal";
 
 export const metadata: Metadata = {
   title: "MMA Promoter",
@@ -17,6 +18,7 @@ export default function RootLayout({
       <body className="bg-black">
         {children}
         <TabBar />
+        <IncidentModal />
       </body>
     </html>
   );
