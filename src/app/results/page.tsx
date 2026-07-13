@@ -132,7 +132,7 @@ export default function ResultsScreen() {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="min-h-screen bg-black text-white pb-36">
       <div className="px-4 pt-6 pb-4 border-b border-neutral-800">
         <h1 className="text-lg font-semibold">Fight Night Results</h1>
         <p className="text-xs text-neutral-500 mt-1">
@@ -207,7 +207,7 @@ export default function ResultsScreen() {
       <FeedPreview week={result.card.week} />
 
       {/* Sticky continue bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-black border-t border-neutral-800">
+      <div className="fixed bottom-16 left-0 right-0 p-4 bg-black border-t border-neutral-800 z-30">
         <button
           onClick={() => router.push("/booking")}
           className="w-full py-3 rounded-lg bg-white text-black font-medium text-sm flex items-center justify-center gap-2"
