@@ -199,6 +199,31 @@ export default function ResultsScreen() {
                 {outcome.method}
                 {outcome.method !== "Decision" && `, Round ${outcome.round}`}
               </div>
+
+              {outcome.summary && (
+                <p className="text-xs text-neutral-400 mt-2 italic">
+                  {outcome.summary}
+                </p>
+              )}
+
+              {outcome.judgeScores && (
+                <div className="mt-3 pt-3 border-t border-neutral-800 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wide text-neutral-600 mb-1">
+                    Judges' Scorecards
+                  </p>
+                  {outcome.judgeScores.map((card, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between text-xs text-neutral-500"
+                    >
+                      <span>{card.judgeName}</span>
+                      <span>
+                        {card.winnerScore}-{card.loserScore}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
