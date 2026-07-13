@@ -162,12 +162,16 @@ export function generateStarterRoster(
  * ranking != null matches something meaningful.
  */
 function assignRankings(fighters: Fighter[], championId: string): void {
-  const sorted = [...fighters].sort(
-    (a, b) => b.wins - b.losses - (a.wins - a.losses)
-  );
+  const contenders = fighters
+    .filter((f) => f.id !== championId)
+    .sort((a, b) => b.wins - b.losses - (a.wins - a.losses));
 
-  sorted.forEach((fighter, index) => {
-    fighter.ranking = fighter.id === championId ? null : index; // champ is unranked-by-number, flagged separately
+  contenders.forEach((fighter, index) => {
+    fighter.ranking = index; // #1 contender gets index 0, displayed as #1
+  });
+
+  fighters.forEach((fighter) => {
     fighter.isChampion = fighter.id === championId;
+    if (fighter.id === championId) fighter.ranking = null;
   });
 }
