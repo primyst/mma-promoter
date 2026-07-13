@@ -185,12 +185,28 @@ const NEWS_HEADLINE_TEMPLATES: Record<FightNarrative, ((w: Fighter, l: Fighter, 
 // CALLOUT TEMPLATES (post-win, targets someone else in division)
 // ============================================
 
-const CALLOUT_FRAGMENTS = [
+// Contenders are hungry and blocked — accusing someone of ducking is their
+// energy, not the champion's. This is the "I want it and I'm not getting it" voice.
+const CONTENDER_CALLOUT_FRAGMENTS = [
   "and I'm calling out {target} next. Let's see what he's got.",
   "{target}, you're up. Don't duck me.",
   "somebody get {target} on the phone, I'm coming for that spot.",
   "I want {target} next, no games.",
+  "{target} knows where to find me. Stop stalling.",
 ];
+
+// Champions don't need to convince anyone — they've already got the belt.
+// The tone here is dismissive and secure, not desperate.
+const CHAMPION_CALLOUT_FRAGMENTS = [
+  "The belt's staying right here. {target}, come get it whenever you're ready.",
+  "I'll fight whoever they put in front of me. {target}, your move.",
+  "Been waiting on {target}. No rush, I'm not going anywhere.",
+  "{target} wants smoke? Line it up, doesn't change anything for me.",
+];
+
+function getCalloutFragments(isChampion: boolean): string[] {
+  return isChampion ? CHAMPION_CALLOUT_FRAGMENTS : CONTENDER_CALLOUT_FRAGMENTS;
+}
 
 // ============================================
 // MAIN GENERATOR
@@ -281,7 +297,7 @@ export function generateFeedForCard(
       const calloutText =
         pick(WINNER_TWEET_FRAGMENTS[narrative]) +
         " " +
-        pick(CALLOUT_FRAGMENTS).replace("{target}", target.name);
+        pick(getCalloutFragments(winner.isChampion)).replace("{target}", target.name);
 
       items.push({
         id: crypto.randomUUID(),
