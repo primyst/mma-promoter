@@ -198,7 +198,7 @@ function pushRecentFight(
   record: Fighter["recentFights"][number]
 ) {
   const updated = [record, ...fighter.recentFights];
-  return updated.slice(0, 5); // keep last 5 only
+  return updated.slice(0, 15); // keep last 15 for career log display
 }
 
 function clamp(value: number, min: number, max: number): number {
