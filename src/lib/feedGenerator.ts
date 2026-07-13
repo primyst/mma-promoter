@@ -252,14 +252,30 @@ export function generateFeedForCard(
       relatedFighterIds: [winner.id, loser.id],
     });
 
-    // Callout — only sometimes, and only if there's a same-weight-class target
-    const possibleTargets = roster.filter(
+    // Callout — only sometimes, and only if there's a same-weight-class target.
+    // Realistic targeting: prefer fighters ranked close to the winner (the
+    // actual "next contender" conversation), rather than a fully random pick
+    // that can read as the winner ducking the real #1 contender.
+    const sameDivision = roster.filter(
       (f) =>
         f.weightClass === winner.weightClass &&
         f.id !== winner.id &&
         f.id !== loser.id &&
         !f.isRetired
     );
+
+    const winnerRank = winner.isChampion ? 0 : (winner.ranking ?? 50) + 1;
+    const nearbyTargets = sameDivision
+      .filter((f) => f.ranking != null || f.isChampion)
+      .sort((a, b) => {
+        const rankA = a.isChampion ? 0 : (a.ranking ?? 50) + 1;
+        const rankB = b.isChampion ? 0 : (b.ranking ?? 50) + 1;
+        return Math.abs(rankA - winnerRank) - Math.abs(rankB - winnerRank);
+      })
+      .slice(0, 3); // the 3 closest-ranked fighters — realistic next-fight pool
+
+    const possibleTargets = nearbyTargets.length > 0 ? nearbyTargets : sameDivision;
+
     if (possibleTargets.length > 0 && maybe(0.4)) {
       const target = pick(possibleTargets);
       const calloutText =
