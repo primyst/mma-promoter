@@ -1,9 +1,10 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Newspaper, Trophy, Users } from "lucide-react";
+import { LayoutDashboard, Swords, Newspaper, Trophy, Users } from "lucide-react";
 
 const TABS = [
+  { label: "Home", path: "/dashboard", icon: LayoutDashboard },
   { label: "Book", path: "/booking", icon: Swords },
   { label: "Roster", path: "/roster", icon: Users },
   { label: "Feed", path: "/feed", icon: Newspaper },
