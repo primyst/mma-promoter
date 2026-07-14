@@ -19,7 +19,7 @@ import {
   vacateTitle,
 } from "./weightClassMove";
 import { runFightWeek, resolveIncident } from "./fightWeekEvents";
-import { WeightClass, Incident, IncidentChoice } from "@/types/game";
+import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
 // STORE SHAPE
@@ -27,7 +27,7 @@ import { WeightClass, Incident, IncidentChoice } from "@/types/game";
 
 interface GameStore extends GameState {
   // Setup
-  initNewGame: (promotionName: string, roster: Fighter[]) => void;
+  initNewGame: (promotionName: string, roster: Fighter[], teams: Team[]) => void;
   loadFromSave: () => boolean; // returns true if a save existed
 
   // Booking
@@ -69,6 +69,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     currentWeek: 1,
   },
   roster: [],
+  teams: [],
   cards: [],
   feed: [],
   titleHistory: [],
@@ -76,7 +77,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   draftCard: [],
 
   // ---- setup ----
-  initNewGame: (promotionName, roster) => {
+  initNewGame: (promotionName, roster, teams) => {
     const newState: GameState = {
       promotion: {
         name: promotionName,
@@ -85,6 +86,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentWeek: 1,
       },
       roster,
+      teams,
       cards: [],
       feed: [],
       titleHistory: initTitleHistoryFromRoster(roster, 1),
@@ -103,6 +105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const safeState: GameState = {
       promotion: saved.promotion,
       roster: saved.roster ?? [],
+      teams: saved.teams ?? [],
       cards: saved.cards ?? [],
       feed: saved.feed ?? [],
       titleHistory: saved.titleHistory ?? [],
@@ -376,6 +379,7 @@ function persistCurrentState(state: GameStore) {
   saveGame({
     promotion: state.promotion,
     roster: state.roster,
+    teams: state.teams,
     cards: state.cards,
     feed: state.feed,
     titleHistory: state.titleHistory,
