@@ -13,6 +13,7 @@ import {
   Trophy,
   ArrowUpCircle,
   ArrowDownCircle,
+  Users,
 } from "lucide-react";
 
 // ============================================
@@ -36,6 +37,7 @@ export default function FighterProfileScreen({
 }) {
   const router = useRouter();
   const roster = useGameStore((s) => s.roster);
+  const teams = useGameStore((s) => s.teams);
   const titleHistory = useGameStore((s) => s.titleHistory);
   const promotion = useGameStore((s) => s.promotion);
   const moveFighterWeightClass = useGameStore((s) => s.moveFighterWeightClass);
@@ -82,6 +84,7 @@ export default function FighterProfileScreen({
 
   const totalDefenses = reigns.reduce((sum, r) => sum + r.defenses, 0);
   const currentReign = reigns.find((r) => r.endWeek === null);
+  const team = teams.find((t) => t.id === fighter.teamId);
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
@@ -100,6 +103,10 @@ export default function FighterProfileScreen({
           {fighter.nickname && (
             <p className="text-xs text-neutral-500">"{fighter.nickname}"</p>
           )}
+          <p className="text-xs text-neutral-600 flex items-center gap-1 mt-0.5">
+            <Users className="w-3 h-3" />
+            {team ? team.name : "Independent"}
+          </p>
         </div>
       </div>
 
