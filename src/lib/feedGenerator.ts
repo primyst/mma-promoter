@@ -50,7 +50,22 @@ function classifyFight(
   // a close decision between a #1 and #7 isn't a squash, it's just a fight.
   if (rankGap >= 6 && outcome.method !== "Decision") return "squash";
 
-  if (outcome.method === "Decision") return "close_decision";
+  if (outcome.method === "Decision") {
+    // Check the ACTUAL judges' scorecards rather than assuming every
+    // decision is close — a 50-45 unanimous card is a clear win, not a
+    // nail-biter, and the feed text needs to match what actually happened.
+    if (outcome.judgeScores && outcome.judgeScores.length > 0) {
+      const avgMargin =
+        outcome.judgeScores.reduce(
+          (sum, card) => sum + (card.winnerScore - card.loserScore),
+          0
+        ) / outcome.judgeScores.length;
+      // Average margin of 1 point/round or less reads as genuinely close;
+      // anything wider is a clear (if unspectacular) decision win.
+      return avgMargin <= 2 ? "close_decision" : "dominant_win";
+    }
+    return "close_decision";
+  }
 
   return "dominant_win";
 }
