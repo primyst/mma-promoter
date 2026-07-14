@@ -19,6 +19,7 @@ import {
   vacateTitle,
 } from "./weightClassMove";
 import { runFightWeek, resolveIncident } from "./fightWeekEvents";
+import { recalculateRankings } from "./rankings";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -224,7 +225,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         isChampion: openReignByFighterId.has(f.id),
       }));
 
-      const revenue = estimateRevenue(dueCard, rosterWithChampions);
+      // Rankings must be recalculated every time — a former champion needs
+      // a real number again, a new champion needs their old number cleared,
+      // and everyone else's win-loss shifts should reshuffle the ladder.
+      const rosterWithRankings = recalculateRankings(rosterWithChampions);
+
+      const revenue = estimateRevenue(dueCard, rosterWithRankings);
 
       const updatedCard: FightCard = {
         ...dueCard,
@@ -243,13 +249,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const newFeedItems = generateFeedForCard(
         outcomes,
         dueCard.fights,
-        rosterWithChampions,
+        rosterWithRankings,
         promotion.currentWeek
       );
-      const ambientItems = generateAmbientNews(rosterWithChampions, promotion.currentWeek);
+      const ambientItems = generateAmbientNews(rosterWithRankings, promotion.currentWeek);
 
       set({
-        roster: rosterWithChampions,
+        roster: rosterWithRankings,
         cards: updatedCards,
         promotion: updatedPromotion,
         feed: [...ambientItems, ...newFeedItems, ...feed],
