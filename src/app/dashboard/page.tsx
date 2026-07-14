@@ -24,6 +24,10 @@ export default function DashboardScreen() {
   ).length;
   const recentFeed = feed.slice(0, 3);
 
+  const dueCard = cards.find(
+    (c) => c.week === promotion.currentWeek && !c.isSimulated
+  );
+
   return (
     <div className="min-h-screen bg-black text-white pb-24">
       <div className="px-4 pt-6 pb-4 border-b border-neutral-800">
@@ -69,8 +73,14 @@ export default function DashboardScreen() {
       {/* Quick actions */}
       <div className="px-4 space-y-2 mb-4">
         <button
+          onClick={() => router.push("/results")}
+          className="w-full flex items-center justify-center gap-2 bg-red-600 rounded-lg px-4 py-3 font-semibold text-sm"
+        >
+          {dueCard ? "Start Fight Night" : "Continue"}
+        </button>
+        <button
           onClick={() => router.push("/booking")}
-          className="w-full flex items-center gap-3 bg-red-600 rounded-lg px-4 py-3 font-medium text-sm"
+          className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
         >
           <Swords className="w-4 h-4" /> Book a Card
         </button>
