@@ -17,6 +17,7 @@ export default function DashboardScreen() {
   const roster = useGameStore((s) => s.roster);
   const cards = useGameStore((s) => s.cards);
   const feed = useGameStore((s) => s.feed);
+  const advanceWeek = useGameStore((s) => s.advanceWeek);
 
   const upcomingCards = cards.filter((c) => !c.isSimulated).length;
   const availableFighters = roster.filter(
@@ -73,7 +74,13 @@ export default function DashboardScreen() {
       {/* Quick actions */}
       <div className="px-4 space-y-2 mb-4">
         <button
-          onClick={() => router.push("/results")}
+          onClick={() => {
+            if (dueCard) {
+              router.push("/results");
+            } else {
+              advanceWeek();
+            }
+          }}
           className="w-full flex items-center justify-center gap-2 bg-red-600 rounded-lg px-4 py-3 font-semibold text-sm"
         >
           {dueCard ? "Start Fight Night" : "Continue"}
