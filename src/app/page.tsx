@@ -18,7 +18,8 @@ export default function StartScreen() {
   }
 
   function handleNewGame() {
-    initNewGame("My Promotion", generateStarterRoster());
+    const { roster, teams } = generateStarterRoster();
+    initNewGame("My Promotion", roster, teams);
     router.push("/dashboard");
   }
 
