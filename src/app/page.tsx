@@ -11,7 +11,7 @@ export default function StartScreen() {
 
   function handleContinue() {
     if (loadFromSave()) {
-      router.push("/booking");
+      router.push("/dashboard");
     } else {
       alert("No save found — start a New Game.");
     }
@@ -19,7 +19,7 @@ export default function StartScreen() {
 
   function handleNewGame() {
     initNewGame("My Promotion", generateStarterRoster());
-    router.push("/booking");
+    router.push("/dashboard");
   }
 
   return (
