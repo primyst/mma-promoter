@@ -45,6 +45,10 @@ function randomInRange(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function maybe(chance: number): boolean {
+  return Math.random() < chance;
+}
+
 function randomName(): { name: string; nickname?: string } {
   const first = randomFrom(FIRST_NAMES);
   const last = randomFrom(LAST_NAMES);
@@ -91,8 +95,6 @@ export function generateTeams(startWeek: number = 1): Team[] {
     reputation: randomInRange(30, 60),
   }));
 }
-
-
 
 export interface GenerateFighterOptions {
   weightClass?: WeightClass;
@@ -197,7 +199,7 @@ export function generateStarterRoster(
     // independently, same as real life.
     divisionFighters.forEach((fighter) => {
       if (maybe(0.55)) {
-        fighter.teamId = pick(teams).id;
+        fighter.teamId = randomFrom(teams).id;
       }
     });
 
@@ -205,10 +207,6 @@ export function generateStarterRoster(
   }
 
   return { roster, teams };
-}
-
-function maybe(chance: number): boolean {
-  return Math.random() < chance;
 }
 
 /**
