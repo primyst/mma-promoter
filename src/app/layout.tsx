@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import TabBar from "@/components/TabBar";
 import IncidentModal from "@/components/IncidentModal";
+import StoreHydrator from "@/components/StoreHydrator";
 
 export const metadata: Metadata = {
   title: "MMA Promoter",
@@ -16,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-black">
+        <StoreHydrator />
         {children}
         <TabBar />
         <IncidentModal />
