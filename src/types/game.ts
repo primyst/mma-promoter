@@ -46,6 +46,7 @@ export interface Fighter {
   name: string;
   nickname?: string;
   weightClass: WeightClass;
+  teamId: string | null; // not every fighter has a camp — many are independent
 
   // Record
   wins: number;
@@ -158,6 +159,18 @@ export interface TitleReign {
 }
 
 // ============================================
+// TEAMS / CAMPS
+// ============================================
+
+export interface Team {
+  id: string;
+  name: string;
+  headCoach: string;
+  foundedWeek: number;
+  reputation: number; // 0-100, grows slowly as members win
+}
+
+// ============================================
 // FIGHT WEEK / INCIDENTS
 // ============================================
 
@@ -181,6 +194,7 @@ export interface Incident {
 export interface GameState {
   promotion: Promotion;
   roster: Fighter[];
+  teams: Team[];
   cards: FightCard[]; // history AND future scheduled cards, keyed by card.week
   feed: FeedItem[];
   titleHistory: TitleReign[];
