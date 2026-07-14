@@ -79,10 +79,15 @@ export default function ResultsScreen() {
   const router = useRouter();
   const roster = useGameStore((s) => s.roster);
   const promotion = useGameStore((s) => s.promotion);
+  const cards = useGameStore((s) => s.cards);
   const advanceWeek = useGameStore((s) => s.advanceWeek);
 
   const [result, setResult] = useState<FightCardResult | null>(null);
   const [hasAdvanced, setHasAdvanced] = useState(false);
+
+  const dueCard = cards.find(
+    (c) => c.week === promotion.currentWeek && !c.isSimulated
+  );
 
   const rosterMap = new Map(roster.map((f) => [f.id, f]));
 
@@ -97,11 +102,22 @@ export default function ResultsScreen() {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4 px-6">
         <p className="text-neutral-500 text-sm">Week {promotion.currentWeek}</p>
+        {dueCard ? (
+          <>
+            <p className="text-lg font-semibold">Fight night is here</p>
+            <p className="text-xs text-neutral-500 text-center">
+              {dueCard.fights.length}{" "}
+              {dueCard.fights.length === 1 ? "fight" : "fights"} scheduled
+            </p>
+          </>
+        ) : (
+          <p className="text-neutral-400 text-sm">No card booked this week</p>
+        )}
         <button
           onClick={handleAdvance}
           className="w-full max-w-sm py-4 bg-red-600 rounded-lg font-semibold text-lg"
         >
-          Advance Week
+          {dueCard ? "Start Fight Night" : "Continue"}
         </button>
       </div>
     );
