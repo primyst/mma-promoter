@@ -61,7 +61,7 @@ function FighterRow({
           </div>
           <div className="text-xs text-neutral-500">
             {fighter.weightClass} · {fighter.wins}-{fighter.losses}-{fighter.draws}
-            {fighter.ranking != null ? ` · #${fighter.ranking}` : ""}
+            {fighter.ranking != null ? ` · #${fighter.ranking + 1}` : ""}
           </div>
           <div className="text-[10px] text-neutral-600 mt-0.5">
             STR {fighter.striking} · GRP {fighter.grappling} · CHIN {fighter.chin}
@@ -88,6 +88,8 @@ export default function BookingScreen() {
   const addFightToDraft = useGameStore((s) => s.addFightToDraft);
   const removeFightFromDraft = useGameStore((s) => s.removeFightFromDraft);
   const submitCard = useGameStore((s) => s.submitCard);
+
+  const advanceWeek = useGameStore((s) => s.advanceWeek);
 
   const [weeksAhead, setWeeksAhead] = useState(0);
 
@@ -153,7 +155,14 @@ export default function BookingScreen() {
   }
 
   function handleSkipWeek() {
-    router.push("/results");
+    const dueCard = cards.find(
+      (c) => c.week === promotion.currentWeek && !c.isSimulated
+    );
+    if (dueCard) {
+      router.push("/results");
+    } else {
+      advanceWeek();
+    }
   }
 
   const rosterMap = useMemo(
