@@ -186,7 +186,7 @@ export default function BookingScreen() {
           onClick={handleSkipWeek}
           className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5 shrink-0"
         >
-          Skip Week
+          Continue
         </button>
       </div>
 
