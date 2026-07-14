@@ -1,4 +1,4 @@
-import { Fighter, WeightClass } from "@/types/game";
+import { Fighter, WeightClass, Team } from "@/types/game";
 
 // ============================================
 // NAME POOLS (for random generation)
@@ -55,9 +55,44 @@ function randomName(): { name: string; nickname?: string } {
   };
 }
 
-// ============================================
-// SINGLE FIGHTER GENERATOR
-// ============================================
+const TEAM_NAMES = [
+  "Iron Fortress MMA",
+  "Blacktop Combat Club",
+  "Northside Fight Team",
+  "Apex Grappling Academy",
+  "Steel City Fighters",
+  "Riverside Combat Lab",
+  "The Pit MMA",
+  "Vantage Point Training",
+];
+
+const COACH_NAMES = [
+  "Coach Reggie Malone",
+  "Coach Sofia Reyes",
+  "Coach Dmitri Volkov",
+  "Coach Amara Okonkwo",
+  "Coach Liam Fitzgerald",
+  "Coach Priya Nair",
+  "Coach Hiroshi Tanaka",
+  "Coach Elena Marchetti",
+];
+
+/**
+ * Generates a fixed pool of camps for the game world. Not every fighter
+ * belongs to one — plenty of real fighters train independently or at
+ * small local gyms not worth modeling individually.
+ */
+export function generateTeams(startWeek: number = 1): Team[] {
+  return TEAM_NAMES.map((name, i) => ({
+    id: crypto.randomUUID(),
+    name,
+    headCoach: COACH_NAMES[i],
+    foundedWeek: startWeek,
+    reputation: randomInRange(30, 60),
+  }));
+}
+
+
 
 export interface GenerateFighterOptions {
   weightClass?: WeightClass;
@@ -97,6 +132,7 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
     name,
     nickname,
     weightClass,
+    teamId: null, // assigned by generateStarterRoster after team pool exists
 
     wins,
     losses,
@@ -134,10 +170,16 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
  * per weight class. Keeps v0.1 focused — you don't need all 8 weight classes
  * fully stacked to test the loop, so this defaults to a lean spread.
  */
+export interface StarterRosterResult {
+  roster: Fighter[];
+  teams: Team[];
+}
+
 export function generateStarterRoster(
   weightClasses: WeightClass[] = ["Lightweight", "Welterweight", "Middleweight"]
-): Fighter[] {
+): StarterRosterResult {
   const roster: Fighter[] = [];
+  const teams = generateTeams(1);
 
   for (const wc of weightClasses) {
     const champion = generateFighter({ weightClass: wc, tier: "champion" });
@@ -150,10 +192,23 @@ export function generateStarterRoster(
 
     const divisionFighters = [champion, ...contenders, ...prospects];
     assignRankings(divisionFighters, champion.id);
+
+    // Roughly 55% of fighters belong to a camp — the rest train
+    // independently, same as real life.
+    divisionFighters.forEach((fighter) => {
+      if (maybe(0.55)) {
+        fighter.teamId = pick(teams).id;
+      }
+    });
+
     roster.push(...divisionFighters);
   }
 
-  return roster;
+  return { roster, teams };
+}
+
+function maybe(chance: number): boolean {
+  return Math.random() < chance;
 }
 
 /**
