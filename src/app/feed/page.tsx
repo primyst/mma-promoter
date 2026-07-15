@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useGameStore } from "@/lib/gameStore";
 import { FeedItem, FeedItemType } from "@/types/game";
-import { Newspaper, MessageCircle, Megaphone } from "lucide-react";
+import { Newspaper, MessageCircle, Megaphone, Mic, Users } from "lucide-react";
 
 // ============================================
 // FEED ITEM ICON + STYLE
@@ -12,12 +12,22 @@ import { Newspaper, MessageCircle, Megaphone } from "lucide-react";
 function FeedIcon({ type }: { type: FeedItemType }) {
   if (type === "news") return <Newspaper className="w-4 h-4 text-blue-400" />;
   if (type === "callout") return <Megaphone className="w-4 h-4 text-red-500" />;
+  if (type === "pundit") return <Mic className="w-4 h-4 text-purple-400" />;
+  if (type === "fan") return <Users className="w-4 h-4 text-green-400" />;
   return <MessageCircle className="w-4 h-4 text-neutral-400" />;
+}
+
+function sentimentColor(sentiment?: "good" | "neutral" | "bad"): string {
+  if (sentiment === "good") return "border-l-2 border-l-green-600";
+  if (sentiment === "bad") return "border-l-2 border-l-red-600";
+  return "";
 }
 
 function FeedCard({ item }: { item: FeedItem }) {
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+    <div
+      className={`bg-neutral-900 border border-neutral-800 rounded-lg p-4 ${sentimentColor(item.sentiment)}`}
+    >
       <div className="flex items-center gap-2 mb-2">
         <FeedIcon type={item.type} />
         <span className="text-sm font-medium">{item.authorName}</span>
@@ -42,6 +52,8 @@ const FILTERS: { label: string; value: FeedItemType | "all" }[] = [
   { label: "Tweets", value: "tweet" },
   { label: "News", value: "news" },
   { label: "Callouts", value: "callout" },
+  { label: "Pundits", value: "pundit" },
+  { label: "Fans", value: "fan" },
 ];
 
 export default function FeedScreen() {
