@@ -184,12 +184,26 @@ export default function RosterScreen() {
             {roster.length} fighters across {weightClasses.length} divisions
           </p>
         </div>
-        <button
-          onClick={() => router.push("/records")}
-          className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5 shrink-0"
-        >
-          Records
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => router.push("/scouting")}
+            className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5"
+          >
+            Scout
+          </button>
+          <button
+            onClick={() => router.push("/teams")}
+            className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5"
+          >
+            Teams
+          </button>
+          <button
+            onClick={() => router.push("/records")}
+            className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5"
+          >
+            Records
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 px-4 py-3 overflow-x-auto">
