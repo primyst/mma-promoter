@@ -18,6 +18,9 @@ export function checkEligibility(fighter: Fighter): EligibilityCheck {
   if (fighter.isRetired) {
     return { eligible: false, reason: "Retired" };
   }
+  if (fighter.contractFightsRemaining === null) {
+    return { eligible: false, reason: "Free agent — not signed" };
+  }
   if (fighter.health === "injured") {
     return {
       eligible: false,
