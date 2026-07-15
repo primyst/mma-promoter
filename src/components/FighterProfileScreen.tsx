@@ -130,7 +130,9 @@ export default function FighterProfileScreen({
           <p className="text-2xl font-bold">
             {fighter.wins}-{fighter.losses}-{fighter.draws}
           </p>
-          <p className="text-xs text-neutral-500">{fighter.weightClass}</p>
+          <p className="text-xs text-neutral-500">
+            {fighter.weightClass} · Age {fighter.age}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <MomentumIcon momentum={fighter.momentum} />
