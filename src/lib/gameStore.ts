@@ -22,6 +22,7 @@ import { runFightWeek, resolveIncident } from "./fightWeekEvents";
 import { recalculateRankings } from "./rankings";
 import { decrementContract, evaluateContractOffer } from "./contracts";
 import { scoutForTalent as scoutForTalentLogic, ScoutTier } from "./scouting";
+import { processWeeklyAgingAndRetirement } from "./retirement";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -304,12 +305,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
         relatedFighterIds: [f.id],
       }));
 
+      // Aging + retirement rolls happen every week regardless of a card —
+      // run it now using the week we're advancing FROM (before increment),
+      // so age-ups line up with the year that just ended.
+      const retirementResult = processWeeklyAgingAndRetirement(
+        rosterWithContracts,
+        newTitleHistory,
+        promotion.currentWeek
+      );
+      const finalRoster = recalculateRankings(retirementResult.roster);
+
       set({
-        roster: rosterWithContracts,
+        roster: finalRoster,
         cards: updatedCards,
         promotion: updatedPromotion,
-        feed: [...freeAgencyFeedItems, ...ambientItems, ...newFeedItems, ...feed],
-        titleHistory: newTitleHistory,
+        feed: [
+          ...retirementResult.feedItems,
+          ...freeAgencyFeedItems,
+          ...ambientItems,
+          ...newFeedItems,
+          ...feed,
+        ],
+        titleHistory: retirementResult.titleHistory,
       });
 
       result = { card: updatedCard, outcomes };
@@ -326,10 +343,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       const ambientItems = generateAmbientNews(tickedRoster, promotion.currentWeek);
 
+      const retirementResult = processWeeklyAgingAndRetirement(
+        tickedRoster,
+        titleHistory,
+        promotion.currentWeek
+      );
+      const finalTickedRoster = recalculateRankings(retirementResult.roster);
+
       set({
-        roster: tickedRoster,
+        roster: finalTickedRoster,
         promotion: { ...promotion, currentWeek: promotion.currentWeek + 1 },
-        feed: [...ambientItems, ...feed],
+        feed: [...retirementResult.feedItems, ...ambientItems, ...feed],
+        titleHistory: retirementResult.titleHistory,
       });
     }
 
