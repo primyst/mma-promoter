@@ -6,6 +6,8 @@ import { useGameStore } from "@/lib/gameStore";
 import { getAdjacentDivisions } from "@/lib/weightClassMove";
 import { computeExpectedPurse } from "@/lib/contracts";
 import { getFightingStyle } from "@/lib/fightingStyle";
+import { getFameTier } from "@/lib/fame";
+import { getEligibleSponsors, SPONSOR_LIST } from "@/lib/sponsors";
 import {
   Crown,
   Flame,
@@ -44,6 +46,9 @@ export default function FighterProfileScreen({
   const promotion = useGameStore((s) => s.promotion);
   const moveFighterWeightClass = useGameStore((s) => s.moveFighterWeightClass);
   const offerContract = useGameStore((s) => s.offerContract);
+  const signSponsor = useGameStore((s) => s.signSponsor);
+
+  const [sponsorResult, setSponsorResult] = useState<string | null>(null);
 
   const [moveError, setMoveError] = useState<string | null>(null);
   const [moveMessage, setMoveMessage] = useState<string | null>(null);
@@ -87,6 +92,13 @@ export default function FighterProfileScreen({
     if (result.outcome === "countered" && result.counterPurse) {
       setContractOffer(result.counterPurse);
     }
+  }
+
+  function handleSignSponsor(sponsorId: string) {
+    const result = signSponsor(fighterId, sponsorId);
+    setSponsorResult(
+      result.success ? "Sponsor deal signed." : result.error ?? "Couldn't sign sponsor"
+    );
   }
 
   if (!fighter) {
@@ -261,6 +273,62 @@ export default function FighterProfileScreen({
             style={{ width: `${fighter.fanHeat}%` }}
           />
         </div>
+      </div>
+
+      {/* Fame + sponsors */}
+      <div className="px-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-neutral-400">
+            {getFameTier(fighter.fame).label}
+          </span>
+          <span className="text-xs text-neutral-500">
+            Fame {fighter.fame}
+          </span>
+        </div>
+
+        {fighter.activeSponsorId ? (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3">
+            <p className="text-xs text-neutral-300">
+              Active deal:{" "}
+              {SPONSOR_LIST.find((s) => s.id === fighter.activeSponsorId)?.name}
+            </p>
+            <p className="text-[10px] text-neutral-500 mt-1">
+              {
+                SPONSOR_LIST.find((s) => s.id === fighter.activeSponsorId)
+                  ?.objectiveLabel
+              }
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {getEligibleSponsors(getFameTier(fighter.fame).tier).length === 0 && (
+              <p className="text-xs text-neutral-600">
+                Not famous enough for sponsors yet — keep winning.
+              </p>
+            )}
+            {getEligibleSponsors(getFameTier(fighter.fame).tier).map((sponsor) => (
+              <button
+                key={sponsor.id}
+                onClick={() => handleSignSponsor(sponsor.id)}
+                className="w-full text-left bg-neutral-900 border border-neutral-800 rounded-lg p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{sponsor.name}</span>
+                  <span className="text-xs text-green-500">
+                    ${sponsor.payout.toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-[10px] text-neutral-500 mt-1">
+                  {sponsor.objectiveLabel}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {sponsorResult && (
+          <p className="text-xs text-neutral-400 mt-2">{sponsorResult}</p>
+        )}
       </div>
 
       {/* Title history */}
