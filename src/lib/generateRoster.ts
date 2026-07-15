@@ -197,6 +197,20 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
     fanHeat,
 
     contractFightsRemaining: randomInRange(3, 8), // everyone starts signed
+
+    // Starting fame roughly reflects what their existing record would have
+    // earned under the same gain rules — a champion didn't just appear at
+    // fame 0, but this is a seed, not a live formula; from here it only
+    // grows through new actions.
+    fame:
+      tier === "champion"
+        ? randomInRange(90, 160)
+        : tier === "breakout"
+        ? randomInRange(20, 45)
+        : tier === "contender"
+        ? randomInRange(35, 80)
+        : randomInRange(5, 25),
+    activeSponsorId: null,
     purse,
 
     isChampion: false, // assigned later by assignRankings()
