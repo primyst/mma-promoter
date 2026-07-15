@@ -10,6 +10,7 @@ import {
   getMostTitleDefenses,
   getMostFanHeat,
   getLongestReign,
+  getPoundForPound,
   LeaderboardEntry,
 } from "@/lib/records";
 import { ArrowLeft, Medal } from "lucide-react";
@@ -19,6 +20,7 @@ import { ArrowLeft, Medal } from "lucide-react";
 // ============================================
 
 type Category =
+  | "p4p"
   | "wins"
   | "record"
   | "finishes"
@@ -27,6 +29,7 @@ type Category =
   | "reign";
 
 const CATEGORIES: { label: string; value: Category }[] = [
+  { label: "P4P", value: "p4p" },
   { label: "Most Wins", value: "wins" },
   { label: "Best Record", value: "record" },
   { label: "Finishes", value: "finishes" },
@@ -55,10 +58,12 @@ export default function RecordsScreen() {
   const roster = useGameStore((s) => s.roster);
   const titleHistory = useGameStore((s) => s.titleHistory);
   const promotion = useGameStore((s) => s.promotion);
-  const [category, setCategory] = useState<Category>("wins");
+  const [category, setCategory] = useState<Category>("p4p");
 
   const entries: LeaderboardEntry[] = useMemo(() => {
     switch (category) {
+      case "p4p":
+        return getPoundForPound(roster, titleHistory);
       case "wins":
         return getMostWins(roster);
       case "record":
