@@ -10,7 +10,6 @@ export default function ControversyModal() {
   if (!pendingControversy) return null;
 
   return (
-<>
     <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center px-4 pb-20 sm:pb-4">
       <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-5 w-full max-w-sm">
         <div className="flex items-center gap-2 mb-3">
@@ -34,6 +33,5 @@ export default function ControversyModal() {
         </div>
       </div>
     </div>
-</>
   );
 }
