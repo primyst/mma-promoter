@@ -78,6 +78,9 @@ export interface Fighter {
   contractFightsRemaining: number | null; // null = free agent, not under contract
   purse: number; // cost paid to this fighter per fight, scaled to how big they are
 
+  fame: number; // persistent, accumulates from specific actions (wins, finishes, defenses) — never a live-computed formula
+  activeSponsorId: string | null;
+
   isChampion: boolean;
   isRetired: boolean;
 }
@@ -196,6 +199,26 @@ export interface Incident {
 }
 
 // ============================================
+// CONTROVERSY (random or decision-driven, any week, not fight-week bound)
+// ============================================
+
+export interface ControversyChoiceOption {
+  id: string;
+  label: string;
+  hint: string; // brief preview of the consequence shown on the button
+}
+
+export interface ControversyEvent {
+  id: string;
+  week: number;
+  title: string;
+  description: string;
+  fighterId: string | null; // null = promotion-wide, not tied to one fighter
+  fighterName: string | null;
+  options: ControversyChoiceOption[];
+}
+
+// ============================================
 // GAME STATE (root object, this is what gets persisted)
 // ============================================
 
@@ -207,6 +230,7 @@ export interface GameState {
   feed: FeedItem[];
   titleHistory: TitleReign[];
   pendingIncident: Incident | null;
+  pendingControversy: ControversyEvent | null;
 }
 
 // ============================================
