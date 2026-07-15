@@ -20,6 +20,7 @@ import {
 } from "./weightClassMove";
 import { runFightWeek, resolveIncident } from "./fightWeekEvents";
 import { recalculateRankings } from "./rankings";
+import { decrementContract, evaluateContractOffer } from "./contracts";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -50,6 +51,13 @@ interface GameStore extends GameState {
 
   // Incident resolution
   resolveIncidentChoice: (choice: IncidentChoice) => void;
+
+  // Contract negotiation
+  offerContract: (
+    fighterId: string,
+    fightsOffered: number,
+    purseOffered: number
+  ) => { outcome: "accepted" | "rejected" | "countered"; counterPurse?: number; message: string };
 }
 
 export interface FightCardResult {
@@ -230,35 +238,69 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // and everyone else's win-loss shifts should reshuffle the ladder.
       const rosterWithRankings = recalculateRankings(rosterWithChampions);
 
-      const revenue = estimateRevenue(dueCard, rosterWithRankings);
+      // Contracts: every fighter who actually competed uses up one fight
+      // on their deal. If it hits zero, they become a free agent.
+      const fightedFighterIds = new Set(
+        dueCard.fights.flatMap((f) => [f.fighterAId, f.fighterBId])
+      );
+      const rosterWithContracts = rosterWithRankings.map((f) =>
+        fightedFighterIds.has(f.id) ? decrementContract(f) : f
+      );
+
+      const expiredThisCard = rosterWithContracts.filter(
+        (f) =>
+          fightedFighterIds.has(f.id) &&
+          f.contractFightsRemaining === null &&
+          roster.find((orig) => orig.id === f.id)?.contractFightsRemaining !== null
+      );
+
+      // Purses: cost of booking this card, paid regardless of win/loss.
+      const rosterMapForPurse = new Map(roster.map((f) => [f.id, f]));
+      const purseCost = dueCard.fights.reduce((total, fight) => {
+        const a = rosterMapForPurse.get(fight.fighterAId);
+        const b = rosterMapForPurse.get(fight.fighterBId);
+        return total + (a?.purse ?? 0) + (b?.purse ?? 0);
+      }, 0);
+
+      const revenue = estimateRevenue(dueCard, rosterWithContracts);
+      const netRevenue = revenue - purseCost;
 
       const updatedCard: FightCard = {
         ...dueCard,
         isSimulated: true,
-        revenue,
+        revenue: netRevenue,
       };
       const updatedCards = [...cards];
       updatedCards[cardIndex] = updatedCard;
 
       const updatedPromotion: Promotion = {
         ...promotion,
-        money: promotion.money + revenue,
+        money: promotion.money + netRevenue,
         currentWeek: promotion.currentWeek + 1,
       };
 
       const newFeedItems = generateFeedForCard(
         outcomes,
         dueCard.fights,
-        rosterWithRankings,
+        rosterWithContracts,
         promotion.currentWeek
       );
-      const ambientItems = generateAmbientNews(rosterWithRankings, promotion.currentWeek);
+      const ambientItems = generateAmbientNews(rosterWithContracts, promotion.currentWeek);
+
+      const freeAgencyFeedItems = expiredThisCard.map((f) => ({
+        id: crypto.randomUUID(),
+        type: "news" as const,
+        week: promotion.currentWeek,
+        authorName: "MMA Wire",
+        content: `${f.name}'s contract has expired — now a free agent.`,
+        relatedFighterIds: [f.id],
+      }));
 
       set({
-        roster: rosterWithRankings,
+        roster: rosterWithContracts,
         cards: updatedCards,
         promotion: updatedPromotion,
-        feed: [...ambientItems, ...newFeedItems, ...feed],
+        feed: [...freeAgencyFeedItems, ...ambientItems, ...newFeedItems, ...feed],
         titleHistory: newTitleHistory,
       });
 
@@ -374,6 +416,43 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     persistCurrentState(get());
+  },
+
+  offerContract: (fighterId, fightsOffered, purseOffered) => {
+    const { roster, promotion, feed } = get();
+    const fighter = roster.find((f) => f.id === fighterId);
+
+    if (!fighter) {
+      return { outcome: "rejected" as const, message: "Fighter not found" };
+    }
+
+    const result = evaluateContractOffer(fighter, fightsOffered, purseOffered);
+
+    if (result.outcome === "accepted") {
+      const updatedRoster = roster.map((f) =>
+        f.id === fighterId
+          ? { ...f, contractFightsRemaining: fightsOffered, purse: purseOffered }
+          : f
+      );
+
+      const newFeedItem = {
+        id: crypto.randomUUID(),
+        type: "news" as const,
+        week: promotion.currentWeek,
+        authorName: "MMA Wire",
+        content: result.message,
+        relatedFighterIds: [fighterId],
+      };
+
+      set({
+        roster: updatedRoster,
+        feed: [newFeedItem, ...feed],
+      });
+
+      persistCurrentState(get());
+    }
+
+    return result;
   },
 }));
 
