@@ -96,7 +96,7 @@ export function generateTeams(startWeek: number = 1): Team[] {
 
 export interface GenerateFighterOptions {
   weightClass?: WeightClass;
-  tier?: "prospect" | "contender" | "champion"; // affects stat range + ranking
+  tier?: "prospect" | "contender" | "champion" | "breakout"; // affects stat range + ranking
 }
 
 export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
@@ -104,9 +104,13 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
   const weightClass = options.weightClass ?? randomFrom(WEIGHT_CLASSES);
   const tier = options.tier ?? "prospect";
 
+  // "breakout" is a rare scouting find — a young fighter with elite raw
+  // stats but no real record yet to prove it. High ceiling, unproven.
   const statRange =
     tier === "champion"
       ? [78, 95]
+      : tier === "breakout"
+      ? [75, 92]
       : tier === "contender"
       ? [65, 85]
       : [45, 70];
@@ -118,6 +122,8 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
       ? randomInRange(15, 24)
       : tier === "contender"
       ? randomInRange(8, 16)
+      : tier === "breakout"
+      ? randomInRange(0, 2) // barely any record — the hype is all in the stats
       : randomInRange(0, 6);
 
   const losses =
@@ -125,11 +131,15 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
       ? randomInRange(0, 2)
       : tier === "contender"
       ? randomInRange(1, 5)
+      : tier === "breakout"
+      ? 0 // undefeated, that's part of the hype
       : randomInRange(0, 4);
 
   const fanHeat =
     tier === "champion"
       ? randomInRange(70, 95)
+      : tier === "breakout"
+      ? randomInRange(45, 65) // buzz without a real body of work yet
       : tier === "contender"
       ? randomInRange(40, 70)
       : randomInRange(10, 40);
