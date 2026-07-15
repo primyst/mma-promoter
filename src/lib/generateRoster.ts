@@ -1,20 +1,9 @@
 import { Fighter, WeightClass, Team } from "@/types/game";
+import { randomCountryProfile, CountryProfile } from "./countryProfiles";
 
 // ============================================
 // NAME POOLS (for random generation)
 // ============================================
-
-const FIRST_NAMES = [
-  "Marcus", "Diego", "Kai", "Viktor", "Amir", "Jonas", "Rafael", "Dmitri",
-  "Theo", "Malik", "Sione", "Bruno", "Kenji", "Emeka", "Lucas", "Andre",
-  "Nasir", "Tomas", "Hassan", "Ivan",
-];
-
-const LAST_NAMES = [
-  "Reyes", "Volkov", "Silva", "Okafor", "Kowalski", "Petrov", "Santos",
-  "Hall", "Nakamura", "Costa", "Duarte", "Novak", "Adeyemi", "Brennan",
-  "Fischer", "Moreau", "Tanaka", "Osei", "Larsen", "Vance",
-];
 
 const NICKNAMES = [
   "The Hammer", "Iceman", "Relentless", "The Ghost", "Bulldozer",
@@ -45,13 +34,29 @@ function randomInRange(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function randomName(): { name: string; nickname?: string } {
-  const first = randomFrom(FIRST_NAMES);
-  const last = randomFrom(LAST_NAMES);
+/**
+ * Picks a random country profile, then a matching name and hometown from
+ * that same country — so a fighter's name, nationality, and hometown are
+ * always coherent (no "Kenji Tanaka from Dublin").
+ */
+function randomNameAndOrigin(): {
+  name: string;
+  nickname?: string;
+  country: string;
+  countryFlag: string;
+  hometown: string;
+} {
+  const profile: CountryProfile = randomCountryProfile();
+  const first = randomFrom(profile.firstNames);
+  const last = randomFrom(profile.lastNames);
   const hasNickname = Math.random() > 0.4;
+
   return {
     name: `${first} ${last}`,
     nickname: hasNickname ? randomFrom(NICKNAMES) : undefined,
+    country: profile.country,
+    countryFlag: profile.flag,
+    hometown: randomFrom(profile.hometowns),
   };
 }
 
@@ -100,7 +105,7 @@ export interface GenerateFighterOptions {
 }
 
 export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
-  const { name, nickname } = randomName();
+  const { name, nickname, country, countryFlag, hometown } = randomNameAndOrigin();
   const weightClass = options.weightClass ?? randomFrom(WEIGHT_CLASSES);
   const tier = options.tier ?? "prospect";
 
@@ -170,6 +175,9 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
     weightClass,
     teamId: null, // assigned by generateStarterRoster after team pool exists
     age,
+    hometown,
+    country,
+    countryFlag,
 
     wins,
     losses,
