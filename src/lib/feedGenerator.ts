@@ -224,6 +224,64 @@ function getCalloutFragments(isChampion: boolean): string[] {
 }
 
 // ============================================
+// PUNDIT TAKES (analyst voice, opinionated but professional)
+// ============================================
+
+const PUNDIT_NAMES = ["Marcus Reid", "Danny Okafor", "Sarah Volkova", "Tommy Diaz"];
+
+const PUNDIT_TAKES: Record<FightNarrative, { sentiment: "good" | "neutral" | "bad"; text: (w: Fighter, l: Fighter) => string }[]> = {
+  upset: [
+    { sentiment: "good", text: (w) => `That's the fight of the year so far. ${w.name} just changed their entire trajectory.` },
+    { sentiment: "neutral", text: (w, l) => `Credit to ${w.name}, but let's not overreact — ${l.name} has been here before and bounced back.` },
+  ],
+  brutal_finish: [
+    { sentiment: "good", text: (w) => `${w.name} is a problem right now. That finish was scary good.` },
+    { sentiment: "bad", text: (w, l) => `Hard to watch. Hope ${l.name} takes real time before booking another one.` },
+  ],
+  close_decision: [
+    { sentiment: "neutral", text: (w, l) => `Could've gone either way honestly. ${w.name} got the nod, ${l.name} won't be happy.` },
+    { sentiment: "bad", text: () => `Rough one to score live. Might be a case for a rematch.` },
+  ],
+  dominant_win: [
+    { sentiment: "good", text: (w) => `${w.name} made it look routine. That's championship-level composure.` },
+    { sentiment: "neutral", text: (w) => `Solid, professional performance from ${w.name}. Nothing flashy, just effective.` },
+  ],
+  squash: [
+    { sentiment: "bad", text: (w, l) => `Matchmaking has to be better than this. ${l.name} had no business in there.` },
+    { sentiment: "neutral", text: (w) => `${w.name} did what they were supposed to. The real question is who's next.` },
+  ],
+};
+
+// ============================================
+// FAN REACTIONS (casual, emotional, less measured than pundits)
+// ============================================
+
+const FAN_HANDLES = ["cagewatcher99", "fightIQking", "mma_since2010", "no_days_off_fan"];
+
+const FAN_REACTIONS: Record<FightNarrative, { sentiment: "good" | "neutral" | "bad"; text: (w: Fighter, l: Fighter) => string }[]> = {
+  upset: [
+    { sentiment: "good", text: (w) => `NO WAY. ${w.name} just did that 😭🔥` },
+    { sentiment: "neutral", text: (w, l) => `okay ${l.name} fans... anybody home? 💀` },
+  ],
+  brutal_finish: [
+    { sentiment: "good", text: (w) => `${w.name} said NOT TODAY and meant it` },
+    { sentiment: "bad", text: (w, l) => `praying for ${l.name} tbh that didn't look good` },
+  ],
+  close_decision: [
+    { sentiment: "bad", text: () => `robbery. absolute robbery. I don't care what anyone says` },
+    { sentiment: "neutral", text: (w) => `close fight, could've gone to ${w.name}'s guy either way ngl` },
+  ],
+  dominant_win: [
+    { sentiment: "good", text: (w) => `${w.name} really said "this is easy" lol` },
+    { sentiment: "neutral", text: () => `fine card, nothing crazy but solid` },
+  ],
+  squash: [
+    { sentiment: "bad", text: () => `why do promotions keep booking these mismatches man` },
+    { sentiment: "neutral", text: (w) => `${w.name} win was never in doubt, next` },
+  ],
+};
+
+// ============================================
 // MAIN GENERATOR
 // ============================================
 
@@ -258,6 +316,36 @@ export function generateFeedForCard(
       content: pick(WINNER_TWEET_FRAGMENTS[narrative]),
       relatedFighterIds: [winner.id, loser.id],
     });
+
+    // Pundit take — gives the world an "expert" voice reacting to what
+    // just happened, separate from the fighters themselves
+    if (maybe(0.5)) {
+      const take = pick(PUNDIT_TAKES[narrative]);
+      items.push({
+        id: crypto.randomUUID(),
+        type: "pundit",
+        week,
+        authorName: pick(PUNDIT_NAMES),
+        content: take.text(winner, loser),
+        relatedFighterIds: [winner.id, loser.id],
+        sentiment: take.sentiment,
+      });
+    }
+
+    // Fan reaction — rawer, more emotional than the pundit take
+    if (maybe(0.45)) {
+      const reaction = pick(FAN_REACTIONS[narrative]);
+      items.push({
+        id: crypto.randomUUID(),
+        type: "fan",
+        week,
+        authorName: pick(FAN_HANDLES),
+        authorHandle: "@" + pick(FAN_HANDLES),
+        content: reaction.text(winner, loser),
+        relatedFighterIds: [winner.id, loser.id],
+        sentiment: reaction.sentiment,
+      });
+    }
 
     // Loser tweet (not always — sometimes fighters go quiet after a loss)
     if (maybe(0.7)) {
