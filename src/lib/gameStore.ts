@@ -21,6 +21,7 @@ import {
 import { runFightWeek, resolveIncident } from "./fightWeekEvents";
 import { recalculateRankings } from "./rankings";
 import { decrementContract, evaluateContractOffer } from "./contracts";
+import { scoutForTalent as scoutForTalentLogic, ScoutTier } from "./scouting";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -58,6 +59,13 @@ interface GameStore extends GameState {
     fightsOffered: number,
     purseOffered: number
   ) => { outcome: "accepted" | "rejected" | "countered"; counterPurse?: number; message: string };
+
+  // Scouting
+  scoutForTalent: (
+    weightClass: WeightClass,
+    tier: ScoutTier
+  ) => { success: boolean; error?: string; candidates?: Fighter[] };
+  signProspect: (candidate: Fighter) => void;
 }
 
 export interface FightCardResult {
@@ -453,6 +461,45 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     return result;
+  },
+
+  scoutForTalent: (weightClass, tier) => {
+    const { promotion } = get();
+    const result = scoutForTalentLogic(weightClass, tier);
+
+    if (promotion.money < result.cost) {
+      return {
+        success: false,
+        error: `Not enough money — scouting costs $${result.cost.toLocaleString()}.`,
+      };
+    }
+
+    set({
+      promotion: { ...promotion, money: promotion.money - result.cost },
+    });
+
+    persistCurrentState(get());
+    return { success: true, candidates: result.candidates };
+  },
+
+  signProspect: (candidate) => {
+    const { roster, feed, promotion } = get();
+
+    const newFeedItem = {
+      id: crypto.randomUUID(),
+      type: "news" as const,
+      week: promotion.currentWeek,
+      authorName: "MMA Wire",
+      content: `${candidate.name} has signed with the promotion — ${candidate.weightClass} division.`,
+      relatedFighterIds: [candidate.id],
+    };
+
+    set({
+      roster: [...roster, candidate],
+      feed: [newFeedItem, ...feed],
+    });
+
+    persistCurrentState(get());
   },
 }));
 
