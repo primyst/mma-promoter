@@ -45,10 +45,6 @@ function randomInRange(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function maybe(chance: number): boolean {
-  return Math.random() < chance;
-}
-
 function randomName(): { name: string; nickname?: string } {
   const first = randomFrom(FIRST_NAMES);
   const last = randomFrom(LAST_NAMES);
@@ -96,6 +92,8 @@ export function generateTeams(startWeek: number = 1): Team[] {
   }));
 }
 
+
+
 export interface GenerateFighterOptions {
   weightClass?: WeightClass;
   tier?: "prospect" | "contender" | "champion"; // affects stat range + ranking
@@ -129,6 +127,20 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
       ? randomInRange(1, 5)
       : randomInRange(0, 4);
 
+  const fanHeat =
+    tier === "champion"
+      ? randomInRange(70, 95)
+      : tier === "contender"
+      ? randomInRange(40, 70)
+      : randomInRange(10, 40);
+
+  // Purse scales with how big a draw this fighter is — champions and
+  // hot-heat fighters cost real money to book, prospects are cheap.
+  const purse =
+    2000 +
+    fanHeat * 300 +
+    (tier === "champion" ? 15000 : 0);
+
   return {
     id: crypto.randomUUID(),
     name,
@@ -151,12 +163,10 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
     health: "fine",
     weeksUntilAvailable: 0,
 
-    fanHeat:
-      tier === "champion"
-        ? randomInRange(70, 95)
-        : tier === "contender"
-        ? randomInRange(40, 70)
-        : randomInRange(10, 40),
+    fanHeat,
+
+    contractFightsRemaining: randomInRange(3, 8), // everyone starts signed
+    purse,
 
     isChampion: false, // assigned later by assignRankings()
     isRetired: false,
@@ -207,6 +217,10 @@ export function generateStarterRoster(
   }
 
   return { roster, teams };
+}
+
+function maybe(chance: number): boolean {
+  return Math.random() < chance;
 }
 
 /**
