@@ -7,6 +7,7 @@ import {
   Momentum,
   HealthStatus,
 } from "@/types/game";
+import { FAME_GAIN } from "./fame";
 
 // ============================================
 // CONFIG
@@ -219,6 +220,20 @@ export function applyFightResult(
   const winner = outcome.winnerId === fighterA.id ? fighterA : fighterB;
   const loser = outcome.winnerId === fighterA.id ? fighterB : fighterA;
 
+  // Base fame gain — win, plus extra for a finish, plus extra for beating
+  // someone clearly above your station. Title-specific bonuses (winning
+  // or defending a belt) are applied separately in the store, since this
+  // function doesn't know whether the booking was a title fight.
+  const wasUpset =
+    loser.isChampion ||
+    (loser.ranking != null &&
+      winner.ranking != null &&
+      loser.ranking < winner.ranking - 2);
+  const fameGain =
+    FAME_GAIN.win +
+    (outcome.method !== "Decision" ? FAME_GAIN.finish : 0) +
+    (wasUpset ? FAME_GAIN.upset : 0);
+
   const updatedWinner: Fighter = {
     ...winner,
     wins: winner.wins + 1,
@@ -226,6 +241,7 @@ export function applyFightResult(
     health: "fine", // wins rarely bring meaningful downtime
     weeksUntilAvailable: outcome.method === "Decision" ? 2 : 3,
     fanHeat: clamp(winner.fanHeat + fanHeatGain(outcome), 0, 100),
+    fame: winner.fame + fameGain,
     recentFights: pushRecentFight(winner, {
       opponentId: loser.id,
       opponentName: loser.name,
