@@ -36,6 +36,9 @@ export function checkWeightMoveEligibility(fighter: Fighter): WeightMoveEligibil
   if (fighter.isRetired) {
     return { eligible: false, reason: "Retired" };
   }
+  if (fighter.contractFightsRemaining === null) {
+    return { eligible: false, reason: "Free agent — sign a contract first" };
+  }
   if (fighter.health === "injured") {
     return { eligible: false, reason: "Can't change weight while injured" };
   }
