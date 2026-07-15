@@ -23,6 +23,9 @@ import { recalculateRankings } from "./rankings";
 import { decrementContract, evaluateContractOffer } from "./contracts";
 import { scoutForTalent as scoutForTalentLogic, ScoutTier } from "./scouting";
 import { processWeeklyAgingAndRetirement } from "./retirement";
+import { getFameTier, FAME_GAIN } from "./fame";
+import { getEligibleSponsors, checkSingleFightObjective, SPONSOR_LIST } from "./sponsors";
+import { rollRandomControversy, resolveControversyChoice as resolveControversyLogic } from "./controversy";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -54,6 +57,9 @@ interface GameStore extends GameState {
   // Incident resolution
   resolveIncidentChoice: (choice: IncidentChoice) => void;
 
+  // Controversy resolution
+  resolveControversyChoice: (choiceId: string) => void;
+
   // Contract negotiation
   offerContract: (
     fighterId: string,
@@ -67,6 +73,9 @@ interface GameStore extends GameState {
     tier: ScoutTier
   ) => { success: boolean; error?: string; candidates?: Fighter[] };
   signProspect: (candidate: Fighter) => void;
+
+  // Sponsors
+  signSponsor: (fighterId: string, sponsorId: string) => { success: boolean; error?: string };
 }
 
 export interface FightCardResult {
@@ -92,6 +101,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   feed: [],
   titleHistory: [],
   pendingIncident: null,
+  pendingControversy: null,
   draftCard: [],
 
   // ---- setup ----
@@ -109,6 +119,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       feed: [],
       titleHistory: initTitleHistoryFromRoster(roster, 1),
       pendingIncident: null,
+      pendingControversy: null,
     };
     set({ ...newState, draftCard: [] });
     saveGame(newState);
@@ -128,6 +139,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       feed: saved.feed ?? [],
       titleHistory: saved.titleHistory ?? [],
       pendingIncident: saved.pendingIncident ?? null,
+      pendingControversy: saved.pendingControversy ?? null,
     };
     set({ ...safeState, draftCard: [] });
     return true;
@@ -207,7 +219,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ---- week progression ----
   advanceWeek: () => {
-    const { cards, roster, promotion, feed, titleHistory } = get();
+    const { cards, roster, promotion, feed, titleHistory, pendingControversy } = get();
 
     const dueCard = cards.find(
       (c) => c.week === promotion.currentWeek && !c.isSimulated
@@ -271,8 +283,78 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return total + (a?.purse ?? 0) + (b?.purse ?? 0);
       }, 0);
 
-      const revenue = estimateRevenue(dueCard, rosterWithContracts);
-      const netRevenue = revenue - purseCost;
+      // Title-specific fame bonuses — winning a belt for the first time
+      // pays more fame than just defending one already held, since it
+      // doesn't know at the generic per-fight level whether this was a
+      // title fight at all.
+      const titleFameBonuses = new Map<string, number>();
+      for (const fight of dueCard.fights.filter((f) => f.isTitleFight)) {
+        const outcome = outcomes.find((o) => o.fightId === fight.id);
+        if (!outcome || !outcome.winnerId) continue;
+        const preFightWinner = rosterMapForPurse.get(outcome.winnerId);
+        if (!preFightWinner) continue;
+        const bonus = preFightWinner.isChampion
+          ? FAME_GAIN.titleDefense
+          : FAME_GAIN.titleWin;
+        titleFameBonuses.set(
+          outcome.winnerId,
+          (titleFameBonuses.get(outcome.winnerId) ?? 0) + bonus
+        );
+      }
+
+      // Sponsor objectives — check every fighter with an active sponsor
+      // deal who competed this card; payout goes to the promotion if met.
+      let sponsorPayout = 0;
+      const sponsorFeedItems: typeof feed = [];
+      const rosterWithSponsorClears = rosterWithContracts.map((f) => {
+        if (!f.activeSponsorId || !fightedFighterIds.has(f.id)) return f;
+
+        const fight = dueCard.fights.find(
+          (bf) => bf.fighterAId === f.id || bf.fighterBId === f.id
+        );
+        const outcome = outcomes.find((o) => o.fightId === fight?.id);
+        if (!fight || !outcome) return f;
+
+        const sponsor = SPONSOR_LIST.find((s) => s.id === f.activeSponsorId);
+        if (!sponsor) return f;
+
+        const originalFighter = rosterMapForPurse.get(f.id);
+        const wasChampionGoingIn = originalFighter?.isChampion ?? false;
+        const fighterWon = outcome.winnerId === f.id;
+
+        const fulfilled = checkSingleFightObjective(
+          sponsor,
+          fighterWon,
+          wasChampionGoingIn,
+          outcome
+        );
+
+        if (fulfilled) {
+          sponsorPayout += sponsor.payout;
+          sponsorFeedItems.push({
+            id: crypto.randomUUID(),
+            type: "news" as const,
+            week: promotion.currentWeek,
+            authorName: "MMA Wire",
+            content: `${f.name} delivered on their ${sponsor.name} deal — bonus paid out.`,
+            relatedFighterIds: [f.id],
+          });
+          return { ...f, activeSponsorId: null };
+        }
+        // Objective not met this fight — deal ends either way, one shot only
+        return { ...f, activeSponsorId: null };
+      });
+
+      // Apply title fame bonuses on top of the base fame already added in
+      // applyFightResult inside simulateCard.
+      const rosterWithFame = rosterWithSponsorClears.map((f) =>
+        titleFameBonuses.has(f.id)
+          ? { ...f, fame: f.fame + (titleFameBonuses.get(f.id) ?? 0) }
+          : f
+      );
+
+      const revenue = estimateRevenue(dueCard, rosterWithFame);
+      const netRevenue = revenue - purseCost + sponsorPayout;
 
       const updatedCard: FightCard = {
         ...dueCard,
@@ -291,10 +373,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const newFeedItems = generateFeedForCard(
         outcomes,
         dueCard.fights,
-        rosterWithContracts,
+        rosterWithFame,
         promotion.currentWeek
       );
-      const ambientItems = generateAmbientNews(rosterWithContracts, promotion.currentWeek);
+      const ambientItems = generateAmbientNews(rosterWithFame, promotion.currentWeek);
 
       const freeAgencyFeedItems = expiredThisCard.map((f) => ({
         id: crypto.randomUUID(),
@@ -309,11 +391,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // run it now using the week we're advancing FROM (before increment),
       // so age-ups line up with the year that just ended.
       const retirementResult = processWeeklyAgingAndRetirement(
-        rosterWithContracts,
+        rosterWithFame,
         newTitleHistory,
         promotion.currentWeek
       );
       const finalRoster = recalculateRankings(retirementResult.roster);
+
+      const newControversy = pendingControversy
+        ? pendingControversy
+        : rollRandomControversy(finalRoster, promotion.currentWeek);
 
       set({
         roster: finalRoster,
@@ -321,12 +407,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         promotion: updatedPromotion,
         feed: [
           ...retirementResult.feedItems,
+          ...sponsorFeedItems,
           ...freeAgencyFeedItems,
           ...ambientItems,
           ...newFeedItems,
           ...feed,
         ],
         titleHistory: retirementResult.titleHistory,
+        pendingControversy: newControversy,
       });
 
       result = { card: updatedCard, outcomes };
@@ -350,11 +438,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       );
       const finalTickedRoster = recalculateRankings(retirementResult.roster);
 
+      const newControversy = pendingControversy
+        ? pendingControversy
+        : rollRandomControversy(finalTickedRoster, promotion.currentWeek);
+
       set({
         roster: finalTickedRoster,
         promotion: { ...promotion, currentWeek: promotion.currentWeek + 1 },
         feed: [...retirementResult.feedItems, ...ambientItems, ...feed],
         titleHistory: retirementResult.titleHistory,
+        pendingControversy: newControversy,
       });
     }
 
@@ -526,6 +619,73 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     persistCurrentState(get());
   },
+
+  signSponsor: (fighterId, sponsorId) => {
+    const { roster } = get();
+    const fighter = roster.find((f) => f.id === fighterId);
+
+    if (!fighter) {
+      return { success: false, error: "Fighter not found" };
+    }
+    if (fighter.activeSponsorId) {
+      return { success: false, error: "Already has an active sponsor deal" };
+    }
+
+    const sponsor = SPONSOR_LIST.find((s) => s.id === sponsorId);
+    if (!sponsor) {
+      return { success: false, error: "Sponsor not found" };
+    }
+
+    const { tier } = getFameTier(fighter.fame);
+    if (tier < sponsor.minFameTier) {
+      return { success: false, error: "Fighter isn't famous enough for this sponsor yet" };
+    }
+
+    const updatedRoster = roster.map((f) =>
+      f.id === fighterId ? { ...f, activeSponsorId: sponsorId } : f
+    );
+
+    set({ roster: updatedRoster });
+    persistCurrentState(get());
+    return { success: true };
+  },
+
+  resolveControversyChoice: (choiceId) => {
+    const { pendingControversy, promotion, feed, roster } = get();
+    if (!pendingControversy) return;
+
+    const effect = resolveControversyLogic(choiceId);
+
+    const updatedRoster = pendingControversy.fighterId
+      ? roster.map((f) =>
+          f.id === pendingControversy.fighterId
+            ? { ...f, fanHeat: Math.max(0, Math.min(100, f.fanHeat + effect.fanHeatDelta)) }
+            : f
+        )
+      : roster;
+
+    const newFeedItem = {
+      id: crypto.randomUUID(),
+      type: "news" as const,
+      week: promotion.currentWeek,
+      authorName: "MMA Wire",
+      content: effect.resultMessage,
+      relatedFighterIds: pendingControversy.fighterId ? [pendingControversy.fighterId] : [],
+    };
+
+    set({
+      roster: updatedRoster,
+      promotion: {
+        ...promotion,
+        reputation: Math.max(0, Math.min(100, promotion.reputation + effect.reputationDelta)),
+        money: promotion.money + effect.moneyDelta,
+      },
+      feed: [newFeedItem, ...feed],
+      pendingControversy: null,
+    });
+
+    persistCurrentState(get());
+  },
 }));
 
 // ============================================
@@ -541,6 +701,7 @@ function persistCurrentState(state: GameStore) {
     feed: state.feed,
     titleHistory: state.titleHistory,
     pendingIncident: state.pendingIncident,
+    pendingControversy: state.pendingControversy,
   });
 }
 
