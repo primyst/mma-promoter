@@ -151,12 +151,25 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
     fanHeat * 300 +
     (tier === "champion" ? 15000 : 0);
 
+  // Age scales roughly with tier — champions and contenders have had time
+  // to build a record, breakouts are young hype, prospects span a wider
+  // range since not everyone breaks through at the same age.
+  const age =
+    tier === "champion"
+      ? randomInRange(27, 36)
+      : tier === "breakout"
+      ? randomInRange(20, 24)
+      : tier === "contender"
+      ? randomInRange(24, 33)
+      : randomInRange(21, 30);
+
   return {
     id: crypto.randomUUID(),
     name,
     nickname,
     weightClass,
     teamId: null, // assigned by generateStarterRoster after team pool exists
+    age,
 
     wins,
     losses,
