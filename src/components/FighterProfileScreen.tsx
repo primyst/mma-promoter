@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { getAdjacentDivisions } from "@/lib/weightClassMove";
 import { computeExpectedPurse } from "@/lib/contracts";
+import { getFightingStyle } from "@/lib/fightingStyle";
 import {
   Crown,
   Flame,
@@ -132,6 +133,9 @@ export default function FighterProfileScreen({
           </p>
           <p className="text-xs text-neutral-500">
             {fighter.weightClass} · Age {fighter.age}
+          </p>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            {fighter.countryFlag} {fighter.hometown} · {getFightingStyle(fighter)}
           </p>
         </div>
         <div className="flex items-center gap-2">
