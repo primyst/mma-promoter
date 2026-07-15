@@ -71,6 +71,9 @@ export interface Fighter {
   // fameTier: number;      // v0.3 hook — unlocks sponsor tiers
   // sponsorIds: string[];  // v0.3 hook
 
+  contractFightsRemaining: number | null; // null = free agent, not under contract
+  purse: number; // cost paid to this fighter per fight, scaled to how big they are
+
   isChampion: boolean;
   isRetired: boolean;
 }
