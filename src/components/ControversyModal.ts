@@ -14,7 +14,9 @@ export default function ControversyModal() {
       <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-5 w-full max-w-sm">
         <div className="flex items-center gap-2 mb-3">
           <Flame className="w-5 h-5 text-orange-500" />
-          <h2 className="font-semibold text-white">{pendingControversy.title}</h2>
+          <h2 className="font-semibold text-white">
+            {pendingControversy.title}
+          </h2>
         </div>
         <p className="text-sm text-neutral-300 mb-5">
           {pendingControversy.description}
@@ -27,7 +29,9 @@ export default function ControversyModal() {
               className="w-full py-2.5 rounded-lg bg-neutral-800 text-white text-sm font-medium text-left px-4"
             >
               {option.label}
-              <span className="block text-xs text-neutral-500">{option.hint}</span>
+              <span className="block text-xs text-neutral-500">
+                {option.hint}
+              </span>
             </button>
           ))}
         </div>
