@@ -47,6 +47,7 @@ export interface Fighter {
   nickname?: string;
   weightClass: WeightClass;
   teamId: string | null; // not every fighter has a camp — many are independent
+  age: number;
 
   // Record
   wins: number;
