@@ -48,6 +48,9 @@ export interface Fighter {
   weightClass: WeightClass;
   teamId: string | null; // not every fighter has a camp — many are independent
   age: number;
+  hometown: string;
+  country: string;
+  countryFlag: string; // emoji flag for quick visual flavor
 
   // Record
   wins: number;
@@ -137,7 +140,7 @@ export interface Promotion {
 // FEED (news + social posts)
 // ============================================
 
-export type FeedItemType = "tweet" | "news" | "callout";
+export type FeedItemType = "tweet" | "news" | "callout" | "pundit" | "fan";
 
 export interface FeedItem {
   id: string;
@@ -147,6 +150,7 @@ export interface FeedItem {
   authorHandle?: string; // for tweets, e.g. "@ivanlarsen"
   content: string;
   relatedFighterIds: string[]; // for filtering/context
+  sentiment?: "good" | "neutral" | "bad"; // used by pundit/fan takes
 }
 
 // ============================================
