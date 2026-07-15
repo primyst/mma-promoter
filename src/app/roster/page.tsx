@@ -61,7 +61,7 @@ function RosterFighterRow({ fighter }: { fighter: Fighter }) {
           <MomentumIcon momentum={fighter.momentum} />
           <div className="text-left min-w-0">
             <div className="font-medium text-sm truncate">
-              {fighter.name}
+              {fighter.countryFlag} {fighter.name}
               {fighter.nickname && (
                 <span className="text-neutral-500 font-normal">
                   {" "}
