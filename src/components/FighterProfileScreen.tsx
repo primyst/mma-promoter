@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { getAdjacentDivisions } from "@/lib/weightClassMove";
+import { computeExpectedPurse } from "@/lib/contracts";
 import {
   Crown,
   Flame,
@@ -41,9 +42,13 @@ export default function FighterProfileScreen({
   const titleHistory = useGameStore((s) => s.titleHistory);
   const promotion = useGameStore((s) => s.promotion);
   const moveFighterWeightClass = useGameStore((s) => s.moveFighterWeightClass);
+  const offerContract = useGameStore((s) => s.offerContract);
 
   const [moveError, setMoveError] = useState<string | null>(null);
   const [moveMessage, setMoveMessage] = useState<string | null>(null);
+  const [contractOffer, setContractOffer] = useState<number | null>(null);
+  const [contractFights, setContractFights] = useState(4);
+  const [contractResult, setContractResult] = useState<string | null>(null);
 
   const fighter = useMemo(
     () => roster.find((f) => f.id === fighterId),
@@ -71,6 +76,15 @@ export default function FighterProfileScreen({
     } else {
       setMoveError(null);
       setMoveMessage(`Moved to ${target}. Settling in before next fight.`);
+    }
+  }
+
+  function handleOfferContract() {
+    if (contractOffer == null) return;
+    const result = offerContract(fighterId, contractFights, contractOffer);
+    setContractResult(result.message);
+    if (result.outcome === "countered" && result.counterPurse) {
+      setContractOffer(result.counterPurse);
     }
   }
 
@@ -124,6 +138,61 @@ export default function FighterProfileScreen({
             {fighter.momentum}
           </span>
         </div>
+      </div>
+
+      {/* Contract status */}
+      <div className="px-4 mb-4">
+        {fighter.contractFightsRemaining !== null ? (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex items-center justify-between">
+            <span className="text-xs text-neutral-400">
+              {fighter.contractFightsRemaining} fight
+              {fighter.contractFightsRemaining !== 1 ? "s" : ""} left on deal
+            </span>
+            <span className="text-xs text-neutral-500">
+              ${fighter.purse.toLocaleString()}/fight
+            </span>
+          </div>
+        ) : (
+          <div className="bg-red-950/30 border border-red-900 rounded-lg p-3 space-y-3">
+            <p className="text-xs text-red-400 font-medium">
+              Free agent — not signed. Expected ask: $
+              {computeExpectedPurse(fighter).toLocaleString()}/fight
+            </p>
+
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                placeholder="Purse offer"
+                value={contractOffer ?? ""}
+                onChange={(e) => setContractOffer(Number(e.target.value) || null)}
+                className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white"
+              />
+              <select
+                value={contractFights}
+                onChange={(e) => setContractFights(Number(e.target.value))}
+                className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-2 text-sm text-white"
+              >
+                {[2, 3, 4, 5, 6, 8].map((n) => (
+                  <option key={n} value={n}>
+                    {n} fights
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={handleOfferContract}
+              disabled={!contractOffer}
+              className="w-full py-2 rounded-lg bg-red-600 disabled:bg-neutral-800 disabled:text-neutral-600 text-xs font-medium"
+            >
+              Offer Contract
+            </button>
+
+            {contractResult && (
+              <p className="text-xs text-neutral-400">{contractResult}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Weight class move */}
