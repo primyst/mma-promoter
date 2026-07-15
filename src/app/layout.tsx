@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import TabBar from "@/components/TabBar";
 import IncidentModal from "@/components/IncidentModal";
+import ControversyModal from "@/components/ControversyModal";
 import StoreHydrator from "@/components/StoreHydrator";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function RootLayout({
         {children}
         <TabBar />
         <IncidentModal />
+        <ControversyModal />
       </body>
     </html>
   );
