@@ -125,3 +125,74 @@ export function getLongestReign(
       label: `${entry.length} week${entry.length !== 1 ? "s" : ""} (${entry.reign.weightClass})`,
     }));
 }
+
+// ============================================
+// POUND-FOR-POUND
+// ============================================
+
+/**
+ * Current win streak counted from the most recent fight backwards until
+ * the first loss. Not a career-long stat — this resets the moment a
+ * fighter loses, which is exactly what P4P lists care about (who's hot
+ * RIGHT NOW, not who was hot two years ago).
+ */
+function getCurrentWinStreak(fighter: Fighter): number {
+  let streak = 0;
+  for (const fight of fighter.recentFights) {
+    if (fight.result === "win") streak++;
+    else break;
+  }
+  return streak;
+}
+
+/**
+ * Composite pound-for-pound score. This is deliberately NOT just "most
+ * wins" — it rewards CURRENT dominance: being champion, actively
+ * defending, finishing fights (not just winning them), and being on a
+ * hot streak right now. A retired legend with 30 career wins shouldn't
+ * outrank an active champion on an 8-fight win streak, and this formula
+ * reflects that by weighting recency and finishes over sheer volume.
+ */
+export function getPoundForPound(
+  roster: Fighter[],
+  titleHistory: TitleReign[],
+  limit: number = 10
+): LeaderboardEntry[] {
+  const defensesByFighter = new Map<string, number>();
+  for (const reign of titleHistory) {
+    defensesByFighter.set(
+      reign.championId,
+      (defensesByFighter.get(reign.championId) ?? 0) + reign.defenses
+    );
+  }
+
+  return roster
+    .filter((f) => !f.isRetired && f.wins + f.losses > 0)
+    .map((fighter) => {
+      const finishes = fighter.recentFights.filter(
+        (fight) => fight.result === "win" && fight.method !== "Decision"
+      ).length;
+      const streak = getCurrentWinStreak(fighter);
+      const defenses = defensesByFighter.get(fighter.id) ?? 0;
+
+      const score =
+        (fighter.isChampion ? 40 : 0) +
+        streak * 8 +
+        fighter.wins * 2 +
+        finishes * 5 +
+        defenses * 10 +
+        fighter.fanHeat * 0.5;
+
+      return { fighter, score, streak, defenses };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ fighter, score, streak }) => ({
+      fighterId: fighter.id,
+      fighterName: fighter.name,
+      value: Math.round(score),
+      label: fighter.isChampion
+        ? `Champion · ${streak}-fight streak`
+        : `${streak}-fight streak · ${fighter.weightClass}`,
+    }));
+}
