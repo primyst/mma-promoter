@@ -17,7 +17,7 @@ export default function ScoutingScreen() {
   const [tier, setTier] = useState<ScoutTier>("standard");
   const [candidates, setCandidates] = useState<Fighter[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [signedId, setSignedId] = useState<string | null>(null);
+  const [signedIds, setSignedIds] = useState<Set<string>>(new Set());
 
   function handleScout() {
     const result = scoutForTalent(weightClass, tier);
@@ -28,12 +28,12 @@ export default function ScoutingScreen() {
     }
     setError(null);
     setCandidates(result.candidates ?? null);
-    setSignedId(null);
+    setSignedIds(new Set()); // fresh search, clear any prior signed markers
   }
 
   function handleSign(candidate: Fighter) {
     signProspect(candidate);
-    setSignedId(candidate.id);
+    setSignedIds((prev) => new Set(prev).add(candidate.id));
   }
 
   return (
@@ -111,7 +111,7 @@ export default function ScoutingScreen() {
             </h2>
             {candidates.map((candidate) => {
               const isBreakout = candidate.wins <= 2 && candidate.fanHeat >= 45;
-              const isSigned = signedId === candidate.id;
+              const isSigned = signedIds.has(candidate.id);
               return (
                 <div
                   key={candidate.id}
