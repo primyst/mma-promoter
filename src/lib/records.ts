@@ -136,7 +136,7 @@ export function getLongestReign(
  * fighter loses, which is exactly what P4P lists care about (who's hot
  * RIGHT NOW, not who was hot two years ago).
  */
-function getCurrentWinStreak(fighter: Fighter): number {
+export function getCurrentWinStreak(fighter: Fighter): number {
   let streak = 0;
   for (const fight of fighter.recentFights) {
     if (fight.result === "win") streak++;
