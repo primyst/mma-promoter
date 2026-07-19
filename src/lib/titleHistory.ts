@@ -31,9 +31,26 @@ export function updateTitleHistory(
     const fighterB = rosterMap.get(fight.fighterBId);
     if (!fighterA || !fighterB) continue;
 
+    const winnerId = outcome.winnerId;
+
+    // Vacant title — neither fighter currently holds the belt. Whoever
+    // wins gets crowned, no "defense" logic applies since there was no
+    // reigning champion to defend against.
+    if (!fighterA.isChampion && !fighterB.isChampion) {
+      const winner = winnerId === fighterA.id ? fighterA : fighterB;
+      history.push({
+        weightClass: winner.weightClass,
+        championId: winner.id,
+        championName: winner.name,
+        startWeek: week,
+        endWeek: null,
+        defenses: 0,
+      });
+      continue;
+    }
+
     const champion = fighterA.isChampion ? fighterA : fighterB;
     const challenger = fighterA.isChampion ? fighterB : fighterA;
-    const winnerId = outcome.winnerId;
 
     if (winnerId === champion.id) {
       // Champion defended — bump defenses on their open reign
