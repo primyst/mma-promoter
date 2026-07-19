@@ -1,4 +1,4 @@
-import { Fighter, BookedFight, CardTier } from "@/types/game";
+import { Fighter, BookedFight, CardTier, FightCard } from "@/types/game";
 
 // ============================================
 // ELIGIBILITY
@@ -13,13 +13,24 @@ export interface EligibilityCheck {
  * Single source of truth for "can this fighter be booked right now".
  * Every other function (roster list, matchup validation) should call this
  * instead of re-checking fields directly.
+ *
+ * `scheduledFighterIds` is every fighter already committed to a FUTURE
+ * unsimulated card — without this, a fighter booked for Week 5 would still
+ * show as "available" if you're booking Week 3, since nothing else tracks
+ * that they're already spoken for until the fight actually happens.
  */
-export function checkEligibility(fighter: Fighter): EligibilityCheck {
+export function checkEligibility(
+  fighter: Fighter,
+  scheduledFighterIds: Set<string> = new Set()
+): EligibilityCheck {
   if (fighter.isRetired) {
     return { eligible: false, reason: "Retired" };
   }
   if (fighter.contractFightsRemaining === null) {
     return { eligible: false, reason: "Free agent — not signed" };
+  }
+  if (scheduledFighterIds.has(fighter.id)) {
+    return { eligible: false, reason: "Already booked on an upcoming card" };
   }
   if (fighter.health === "injured") {
     return {
@@ -37,11 +48,31 @@ export function checkEligibility(fighter: Fighter): EligibilityCheck {
 }
 
 /**
- * Filters a roster down to fighters who can actually be booked this week.
- * This is what populates the booking screen's fighter picker.
+ * Builds the set of fighter IDs already committed to any unsimulated card,
+ * across all future weeks — not just the one being booked right now.
  */
-export function getBookableFighters(roster: Fighter[]): Fighter[] {
-  return roster.filter((f) => checkEligibility(f).eligible);
+export function getScheduledFighterIds(cards: FightCard[]): Set<string> {
+  const ids = new Set<string>();
+  for (const card of cards) {
+    if (card.isSimulated) continue;
+    for (const fight of card.fights) {
+      ids.add(fight.fighterAId);
+      ids.add(fight.fighterBId);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Filters a roster down to fighters who can actually be booked. Pass the
+ * full cards list so already-scheduled fighters get excluded correctly.
+ */
+export function getBookableFighters(
+  roster: Fighter[],
+  cards: FightCard[] = []
+): Fighter[] {
+  const scheduledFighterIds = getScheduledFighterIds(cards);
+  return roster.filter((f) => checkEligibility(f, scheduledFighterIds).eligible);
 }
 
 // ============================================
@@ -61,7 +92,9 @@ export interface MatchupValidation {
 export function validateMatchup(
   fighterA: Fighter,
   fighterB: Fighter,
-  isTitleFight: boolean
+  isTitleFight: boolean,
+  divisionHasChampion: boolean = true,
+  scheduledFighterIds: Set<string> = new Set()
 ): MatchupValidation {
   const warnings: string[] = [];
   const blockers: string[] = [];
@@ -74,12 +107,16 @@ export function validateMatchup(
     blockers.push("Fighters must be in the same weight class");
   }
 
-  const eligA = checkEligibility(fighterA);
-  const eligB = checkEligibility(fighterB);
+  const eligA = checkEligibility(fighterA, scheduledFighterIds);
+  const eligB = checkEligibility(fighterB, scheduledFighterIds);
   if (!eligA.eligible) blockers.push(`${fighterA.name}: ${eligA.reason}`);
   if (!eligB.eligible) blockers.push(`${fighterB.name}: ${eligB.reason}`);
 
-  if (isTitleFight) {
+  // Title fights normally require the reigning champion to be involved —
+  // BUT if the division has no champion at all (brand new division, or a
+  // vacated title with nobody crowned yet), two ranked contenders can
+  // fight for the vacant belt instead.
+  if (isTitleFight && divisionHasChampion) {
     if (!fighterA.isChampion && !fighterB.isChampion) {
       blockers.push("Title fight requires the current champion to be involved");
     }
