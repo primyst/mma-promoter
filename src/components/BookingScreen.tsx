@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { getBookableFighters, validateMatchup } from "@/lib/booking";
-import { Fighter, BookedFight } from "@/types/game";
+import { Fighter, BookedFight, WeightClass, WEIGHT_CLASS_ORDER } from "@/types/game";
 import {
   Flame,
   Snowflake,
@@ -94,13 +94,14 @@ export default function BookingScreen() {
   const [weeksAhead, setWeeksAhead] = useState(0);
 
   const [pickingFor, setPickingFor] = useState<"A" | "B" | null>(null);
+  const [pickerDivision, setPickerDivision] = useState<WeightClass | "all">("all");
   const [slotA, setSlotA] = useState<Fighter | null>(null);
   const [slotB, setSlotB] = useState<Fighter | null>(null);
   const [isTitleFight, setIsTitleFight] = useState(false);
   const [isMainEvent, setIsMainEvent] = useState(false);
   const [submitError, setSubmitError] = useState<string[] | null>(null);
 
-  const bookable = useMemo(() => getBookableFighters(roster), [roster]);
+  const bookable = useMemo(() => getBookableFighters(roster, cards), [roster, cards]);
 
   const alreadyBookedIds = useMemo(() => {
     const ids = new Set<string>();
@@ -115,10 +116,17 @@ export default function BookingScreen() {
     (f) => !alreadyBookedIds.has(f.id) && f.id !== slotA?.id && f.id !== slotB?.id
   );
 
+  const divisionHasChampion = useMemo(() => {
+    if (!slotA) return true;
+    return roster.some(
+      (f) => f.weightClass === slotA.weightClass && f.isChampion
+    );
+  }, [slotA, roster]);
+
   const matchup = useMemo(() => {
     if (!slotA || !slotB) return null;
-    return validateMatchup(slotA, slotB, isTitleFight);
-  }, [slotA, slotB, isTitleFight]);
+    return validateMatchup(slotA, slotB, isTitleFight, divisionHasChampion);
+  }, [slotA, slotB, isTitleFight, divisionHasChampion]);
 
   function handlePick(fighter: Fighter) {
     if (pickingFor === "A") setSlotA(fighter);
@@ -208,20 +216,45 @@ export default function BookingScreen() {
               <X className="w-5 h-5" />
             </button>
           </div>
+
+          <div className="flex gap-2 px-4 py-3 overflow-x-auto border-b border-neutral-800">
+            {(["all", ...WEIGHT_CLASS_ORDER] as (WeightClass | "all")[]).map(
+              (wc) => (
+                <button
+                  key={wc}
+                  onClick={() => setPickerDivision(wc)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border shrink-0 ${
+                    pickerDivision === wc
+                      ? "bg-white text-black border-white"
+                      : "border-neutral-700 text-neutral-400"
+                  }`}
+                >
+                  {wc === "all" ? "All Divisions" : wc}
+                </button>
+              )
+            )}
+          </div>
+
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-            {availableForPicker.length === 0 && (
+            {availableForPicker.filter(
+              (f) => pickerDivision === "all" || f.weightClass === pickerDivision
+            ).length === 0 && (
               <p className="text-sm text-neutral-500 text-center mt-8">
-                No eligible fighters left to book.
+                No eligible fighters in this division.
               </p>
             )}
-            {availableForPicker.map((fighter) => (
-              <FighterRow
-                key={fighter.id}
-                fighter={fighter}
-                selected={false}
-                onSelect={() => handlePick(fighter)}
-              />
-            ))}
+            {availableForPicker
+              .filter(
+                (f) => pickerDivision === "all" || f.weightClass === pickerDivision
+              )
+              .map((fighter) => (
+                <FighterRow
+                  key={fighter.id}
+                  fighter={fighter}
+                  selected={false}
+                  onSelect={() => handlePick(fighter)}
+                />
+              ))}
           </div>
         </div>
       )}
@@ -230,7 +263,10 @@ export default function BookingScreen() {
       <div className="px-4 py-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => setPickingFor("A")}
+            onClick={() => {
+              setPickerDivision(slotB?.weightClass ?? "all");
+              setPickingFor("A");
+            }}
             className="border border-dashed border-neutral-700 rounded-lg py-4 px-3 text-sm text-left"
           >
             {slotA ? (
@@ -240,7 +276,10 @@ export default function BookingScreen() {
             )}
           </button>
           <button
-            onClick={() => setPickingFor("B")}
+            onClick={() => {
+              setPickerDivision(slotA?.weightClass ?? "all");
+              setPickingFor("B");
+            }}
             className="border border-dashed border-neutral-700 rounded-lg py-4 px-3 text-sm text-left"
           >
             {slotB ? (
@@ -336,34 +375,45 @@ export default function BookingScreen() {
           <h2 className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
             Upcoming Calendar
           </h2>
-          {upcomingCards.map((card) => (
-            <div
-              key={card.id}
-              className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3"
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-neutral-300">
-                  Week {card.week}
-                  {card.week === promotion.currentWeek ? " (this week)" : ""}
-                </span>
-                <span className="text-[10px] text-neutral-500">
-                  {card.fights.length}{" "}
-                  {card.fights.length === 1 ? "fight" : "fights"}
-                </span>
+          {upcomingCards.map((card) => {
+            const isThisWeek = card.week === promotion.currentWeek;
+            return (
+              <div
+                key={card.id}
+                className={`rounded-lg px-4 py-3 border ${
+                  isThisWeek
+                    ? "bg-red-950/30 border-red-700"
+                    : "bg-neutral-900 border-neutral-800"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span
+                    className={`text-xs font-medium ${
+                      isThisWeek ? "text-red-400" : "text-neutral-300"
+                    }`}
+                  >
+                    Week {card.week}
+                    {isThisWeek ? " — FIGHT WEEK" : ""}
+                  </span>
+                  <span className="text-[10px] text-neutral-500">
+                    {card.fights.length}{" "}
+                    {card.fights.length === 1 ? "fight" : "fights"}
+                  </span>
+                </div>
+                {card.fights.map((fight) => {
+                  const a = rosterMap.get(fight.fighterAId);
+                  const b = rosterMap.get(fight.fighterBId);
+                  return (
+                    <div key={fight.id} className="text-xs text-neutral-500">
+                      {a?.name} vs {b?.name}
+                      {fight.isTitleFight ? " · Title" : ""}
+                      {fight.isMainEvent ? " · Main" : ""}
+                    </div>
+                  );
+                })}
               </div>
-              {card.fights.map((fight) => {
-                const a = rosterMap.get(fight.fighterAId);
-                const b = rosterMap.get(fight.fighterBId);
-                return (
-                  <div key={fight.id} className="text-xs text-neutral-500">
-                    {a?.name} vs {b?.name}
-                    {fight.isTitleFight ? " · Title" : ""}
-                    {fight.isMainEvent ? " · Main" : ""}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
