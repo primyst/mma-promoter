@@ -26,6 +26,7 @@ import { processWeeklyAgingAndRetirement } from "./retirement";
 import { getFameTier, FAME_GAIN } from "./fame";
 import { getEligibleSponsors, checkSingleFightObjective, SPONSOR_LIST } from "./sponsors";
 import { rollRandomControversy, resolveControversyChoice as resolveControversyLogic } from "./controversy";
+import { generateMilestoneNews } from "./milestones";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -377,6 +378,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         promotion.currentWeek
       );
       const ambientItems = generateAmbientNews(rosterWithFame, promotion.currentWeek);
+      const milestoneItems = generateMilestoneNews(
+        fightedFighterIds,
+        roster,
+        rosterWithFame,
+        promotion.name,
+        promotion.currentWeek
+      );
 
       const freeAgencyFeedItems = expiredThisCard.map((f) => ({
         id: crypto.randomUUID(),
@@ -406,6 +414,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         cards: updatedCards,
         promotion: updatedPromotion,
         feed: [
+          ...milestoneItems,
           ...retirementResult.feedItems,
           ...sponsorFeedItems,
           ...freeAgencyFeedItems,
