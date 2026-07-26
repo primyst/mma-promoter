@@ -31,7 +31,7 @@ export type HealthStatus = "fine" | "nursing" | "injured";
 
 export type FightResultType = "win" | "loss" | "draw" | "no_contest";
 
-export type FinishMethod = "KO/TKO" | "Submission" | "Decision" | "DQ";
+export type FinishMethod = "KO/TKO" | "Submission" | "Decision" | "DQ" | "Doctor Stoppage";
 
 export interface FightRecord {
   opponentId: string;
@@ -143,7 +143,7 @@ export interface Promotion {
 // FEED (news + social posts)
 // ============================================
 
-export type FeedItemType = "tweet" | "news" | "callout" | "pundit" | "fan";
+export type FeedItemType = "tweet" | "news" | "callout" | "pundit" | "fan" | "promotion";
 
 export interface FeedItem {
   id: string;
