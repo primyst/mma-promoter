@@ -27,6 +27,17 @@ import { getFameTier, FAME_GAIN } from "./fame";
 import { getEligibleSponsors, checkSingleFightObjective, SPONSOR_LIST } from "./sponsors";
 import { rollRandomControversy, resolveControversyChoice as resolveControversyLogic } from "./controversy";
 import { generateMilestoneNews } from "./milestones";
+import {
+  getPromotionHandle,
+  cardAnnouncementPost,
+  postCardRecapPost,
+  newSigningPost,
+  sponsorDealPost,
+  weightMovePost,
+  officialStatementPost,
+  milestoneCongratsPost,
+  businessMilestonePost,
+} from "./promotionAccount";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -204,6 +215,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (weekResult.incident) {
           newIncident = weekResult.incident; // only one open incident at a time for now
         }
+
+        const promotionHandle = getPromotionHandle(get().promotion.name);
+        newFeedItems.push({
+          id: crypto.randomUUID(),
+          type: "promotion",
+          week: targetWeek,
+          authorName: get().promotion.name,
+          authorHandle: "@" + promotionHandle,
+          content: cardAnnouncementPost(
+            fighterA.name,
+            fighterB.name,
+            targetWeek,
+            headliner.isTitleFight
+          ),
+          relatedFighterIds: [fighterA.id, fighterB.id],
+        });
       }
     }
 
@@ -386,6 +413,51 @@ export const useGameStore = create<GameStore>((set, get) => ({
         promotion.currentWeek
       );
 
+      // Promotion's own account: recaps the card, and separately congratulates
+      // anyone who just hit a milestone (piggybacks off the same detection
+      // milestoneItems already did, just adds the promotion's own reaction).
+      const promotionHandle = getPromotionHandle(promotion.name);
+      const promotionFeedItems: typeof feed = [
+        {
+          id: crypto.randomUUID(),
+          type: "promotion",
+          week: promotion.currentWeek,
+          authorName: promotion.name,
+          authorHandle: "@" + promotionHandle,
+          content: postCardRecapPost(revenue, dueCard.fights.length),
+          relatedFighterIds: [],
+        },
+      ];
+      for (const milestoneItem of milestoneItems) {
+        if (milestoneItem.relatedFighterIds.length === 0) continue;
+        const fighterName = rosterWithFame.find(
+          (f) => f.id === milestoneItem.relatedFighterIds[0]
+        )?.name;
+        if (!fighterName) continue;
+        promotionFeedItems.push({
+          id: crypto.randomUUID(),
+          type: "promotion",
+          week: promotion.currentWeek,
+          authorName: promotion.name,
+          authorHandle: "@" + promotionHandle,
+          content: milestoneCongratsPost(fighterName),
+          relatedFighterIds: milestoneItem.relatedFighterIds,
+        });
+      }
+
+      const simulatedCardCount = updatedCards.filter((c) => c.isSimulated).length;
+      if (simulatedCardCount > 0 && simulatedCardCount % 10 === 0) {
+        promotionFeedItems.push({
+          id: crypto.randomUUID(),
+          type: "promotion",
+          week: promotion.currentWeek,
+          authorName: promotion.name,
+          authorHandle: "@" + promotionHandle,
+          content: businessMilestonePost(simulatedCardCount),
+          relatedFighterIds: [],
+        });
+      }
+
       const freeAgencyFeedItems = expiredThisCard.map((f) => ({
         id: crypto.randomUUID(),
         type: "news" as const,
@@ -414,6 +486,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         cards: updatedCards,
         promotion: updatedPromotion,
         feed: [
+          ...promotionFeedItems,
           ...milestoneItems,
           ...retirementResult.feedItems,
           ...sponsorFeedItems,
@@ -492,16 +565,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ? vacateTitle(titleHistory, fighterId, promotion.currentWeek)
       : titleHistory;
 
-    const newsContent = vacatedTitle
-      ? `${fighter.name} vacates the ${oldWeightClass} title, moving ${direction} to ${targetClass}.`
-      : `${fighter.name} announces a move ${direction} to ${targetClass}, leaving ${oldWeightClass} behind.`;
-
+    const promotionHandle = getPromotionHandle(promotion.name);
     const newFeedItem = {
       id: crypto.randomUUID(),
-      type: "news" as const,
+      type: "promotion" as const,
       week: promotion.currentWeek,
-      authorName: "MMA Wire",
-      content: newsContent,
+      authorName: promotion.name,
+      authorHandle: "@" + promotionHandle,
+      content: weightMovePost(
+        fighter.name,
+        direction,
+        oldWeightClass,
+        targetClass,
+        vacatedTitle
+      ),
       relatedFighterIds: [fighterId],
     };
 
@@ -531,12 +608,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return f;
     });
 
+    const promotionHandle = getPromotionHandle(promotion.name);
     const newFeedItem = {
       id: crypto.randomUUID(),
-      type: "news" as const,
+      type: "promotion" as const,
       week: promotion.currentWeek,
-      authorName: "MMA Wire",
-      content: effect.resultMessage,
+      authorName: promotion.name,
+      authorHandle: "@" + promotionHandle,
+      content: officialStatementPost(effect.resultMessage),
       relatedFighterIds: [pendingIncident.fighterAId, pendingIncident.fighterBId],
     };
 
@@ -621,16 +700,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
       relatedFighterIds: [candidate.id],
     };
 
+    const promotionHandle = getPromotionHandle(promotion.name);
+    const hypePost = {
+      id: crypto.randomUUID(),
+      type: "promotion" as const,
+      week: promotion.currentWeek,
+      authorName: promotion.name,
+      authorHandle: "@" + promotionHandle,
+      content: newSigningPost(candidate.name, candidate.weightClass),
+      relatedFighterIds: [candidate.id],
+    };
+
     set({
       roster: [...roster, candidate],
-      feed: [newFeedItem, ...feed],
+      feed: [hypePost, newFeedItem, ...feed],
     });
 
     persistCurrentState(get());
   },
 
   signSponsor: (fighterId, sponsorId) => {
-    const { roster } = get();
+    const { roster, feed, promotion } = get();
     const fighter = roster.find((f) => f.id === fighterId);
 
     if (!fighter) {
@@ -654,7 +744,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       f.id === fighterId ? { ...f, activeSponsorId: sponsorId } : f
     );
 
-    set({ roster: updatedRoster });
+    const promotionHandle = getPromotionHandle(promotion.name);
+    const dealPost = {
+      id: crypto.randomUUID(),
+      type: "promotion" as const,
+      week: promotion.currentWeek,
+      authorName: promotion.name,
+      authorHandle: "@" + promotionHandle,
+      content: sponsorDealPost(fighter.name, sponsor.name),
+      relatedFighterIds: [fighterId],
+    };
+
+    set({ roster: updatedRoster, feed: [dealPost, ...feed] });
     persistCurrentState(get());
     return { success: true };
   },
@@ -673,12 +774,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         )
       : roster;
 
+    const promotionHandle = getPromotionHandle(promotion.name);
     const newFeedItem = {
       id: crypto.randomUUID(),
-      type: "news" as const,
+      type: "promotion" as const,
       week: promotion.currentWeek,
-      authorName: "MMA Wire",
-      content: effect.resultMessage,
+      authorName: promotion.name,
+      authorHandle: "@" + promotionHandle,
+      content: officialStatementPost(effect.resultMessage),
       relatedFighterIds: pendingControversy.fighterId ? [pendingControversy.fighterId] : [],
     };
 
