@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useGameStore } from "@/lib/gameStore";
 import { FeedItem, FeedItemType } from "@/types/game";
-import { Newspaper, MessageCircle, Megaphone, Mic, Users } from "lucide-react";
+import { Newspaper, MessageCircle, Megaphone, Mic, Users, BadgeCheck } from "lucide-react";
 
 // ============================================
 // FEED ITEM ICON + STYLE
@@ -14,6 +14,7 @@ function FeedIcon({ type }: { type: FeedItemType }) {
   if (type === "callout") return <Megaphone className="w-4 h-4 text-red-500" />;
   if (type === "pundit") return <Mic className="w-4 h-4 text-purple-400" />;
   if (type === "fan") return <Users className="w-4 h-4 text-green-400" />;
+  if (type === "promotion") return <BadgeCheck className="w-4 h-4 text-yellow-500" />;
   return <MessageCircle className="w-4 h-4 text-neutral-400" />;
 }
 
@@ -24,13 +25,21 @@ function sentimentColor(sentiment?: "good" | "neutral" | "bad"): string {
 }
 
 function FeedCard({ item }: { item: FeedItem }) {
+  const isOfficial = item.type === "promotion";
   return (
     <div
-      className={`bg-neutral-900 border border-neutral-800 rounded-lg p-4 ${sentimentColor(item.sentiment)}`}
+      className={`bg-neutral-900 border rounded-lg p-4 ${
+        isOfficial ? "border-yellow-700/50 bg-yellow-950/10" : "border-neutral-800"
+      } ${sentimentColor(item.sentiment)}`}
     >
       <div className="flex items-center gap-2 mb-2">
         <FeedIcon type={item.type} />
         <span className="text-sm font-medium">{item.authorName}</span>
+        {isOfficial && (
+          <span className="text-[9px] uppercase tracking-wide text-yellow-500 border border-yellow-700/50 rounded px-1">
+            Official
+          </span>
+        )}
         {item.authorHandle && (
           <span className="text-xs text-neutral-500">{item.authorHandle}</span>
         )}
@@ -49,6 +58,7 @@ function FeedCard({ item }: { item: FeedItem }) {
 
 const FILTERS: { label: string; value: FeedItemType | "all" }[] = [
   { label: "All", value: "all" },
+  { label: "Official", value: "promotion" },
   { label: "Tweets", value: "tweet" },
   { label: "News", value: "news" },
   { label: "Callouts", value: "callout" },
