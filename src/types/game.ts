@@ -106,6 +106,7 @@ export interface FightCard {
   fights: BookedFight[];
   isSimulated: boolean;
   revenue?: number; // filled in after simulation
+  outcomes?: FightOutcome[]; // filled in after simulation — needed for history browsing
 }
 
 // ============================================
