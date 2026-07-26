@@ -9,6 +9,7 @@ import {
   Trophy,
   DollarSign,
   Calendar,
+  History,
 } from "lucide-react";
 
 export default function DashboardScreen() {
@@ -90,6 +91,12 @@ export default function DashboardScreen() {
           className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
         >
           <Swords className="w-4 h-4" /> Book a Card
+        </button>
+        <button
+          onClick={() => router.push("/history")}
+          className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
+        >
+          <History className="w-4 h-4" /> Results History
         </button>
       </div>
 
