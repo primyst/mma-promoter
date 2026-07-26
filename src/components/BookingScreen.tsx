@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { getBookableFighters, validateMatchup } from "@/lib/booking";
@@ -178,6 +178,24 @@ export default function BookingScreen() {
     [roster]
   );
 
+  const takenWeeks = useMemo(() => {
+    const weeks = new Set<number>();
+    for (const card of cards) {
+      if (!card.isSimulated) weeks.add(card.week);
+    }
+    return weeks;
+  }, [cards]);
+
+  useEffect(() => {
+    const currentTarget = promotion.currentWeek + weeksAhead;
+    if (takenWeeks.has(currentTarget)) {
+      const firstOpen = [0, 1, 2, 3, 4, 6, 8].find(
+        (w) => !takenWeeks.has(promotion.currentWeek + w)
+      );
+      if (firstOpen !== undefined) setWeeksAhead(firstOpen);
+    }
+  }, [takenWeeks, promotion.currentWeek]);
+
   const upcomingCards = useMemo(
     () =>
       cards
@@ -344,19 +362,27 @@ export default function BookingScreen() {
             <Calendar className="w-3.5 h-3.5" /> Schedule for
           </p>
           <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {[0, 1, 2, 3, 4, 6, 8].map((w) => (
-              <button
-                key={w}
-                onClick={() => setWeeksAhead(w)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border shrink-0 ${
-                  weeksAhead === w
-                    ? "bg-white text-black border-white"
-                    : "border-neutral-700 text-neutral-400"
-                }`}
-              >
-                {w === 0 ? "This week" : `Week ${promotion.currentWeek + w}`}
-              </button>
-            ))}
+            {[0, 1, 2, 3, 4, 6, 8].map((w) => {
+              const targetWeek = promotion.currentWeek + w;
+              const isTaken = takenWeeks.has(targetWeek);
+              return (
+                <button
+                  key={w}
+                  onClick={() => !isTaken && setWeeksAhead(w)}
+                  disabled={isTaken}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border shrink-0 ${
+                    isTaken
+                      ? "border-neutral-800 text-neutral-600 line-through cursor-not-allowed"
+                      : weeksAhead === w
+                      ? "bg-white text-black border-white"
+                      : "border-neutral-700 text-neutral-400"
+                  }`}
+                >
+                  {w === 0 ? "This week" : `Week ${targetWeek}`}
+                  {isTaken ? " · booked" : ""}
+                </button>
+              );
+            })}
           </div>
         </div>
 
