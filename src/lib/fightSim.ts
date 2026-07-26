@@ -47,8 +47,17 @@ export function simulateFight(
   const winner = aWins ? fighterA : fighterB;
   const loser = aWins ? fighterB : fighterA;
 
-  const method = determineFinishMethod(winner, loser);
-  const round = determineRound(method, rounds);
+  let method = determineFinishMethod(winner, loser);
+  let round = determineRound(method, rounds);
+
+  // Doctor stoppages: a rare, pure-bad-luck cut that ends the fight
+  // regardless of who was actually winning on stats. This is deliberately
+  // NOT tied to striking/chin — cuts happen to dominant fighters too, and
+  // that's exactly what makes them feel unfair when they land.
+  if (method !== "Decision" && Math.random() < 0.03) {
+    method = "Doctor Stoppage";
+    round = Math.max(1, Math.min(rounds, round)); // keep whatever round it already landed on
+  }
 
   const judgeScores =
     method === "Decision"
@@ -127,6 +136,10 @@ const FINISH_SUMMARIES: Record<FinishMethod, string[]> = {
     "grinded out a hard-fought distance win",
   ],
   DQ: ["won by disqualification after an illegal strike"],
+  "Doctor Stoppage": [
+    "picked up the win after a cut forced the doctor to step in",
+    "was awarded the stoppage when a bad cut ended the fight early",
+  ],
 };
 
 function generateFightSummary(
