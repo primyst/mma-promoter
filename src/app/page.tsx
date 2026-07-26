@@ -24,27 +24,72 @@ export default function StartScreen() {
   }
 
   return (
-    <div
-      className="relative min-h-screen bg-cover bg-center flex flex-col items-center justify-end px-6 pb-16"
-      style={{ backgroundImage: "url(/home.jpg)" }}
-    >
-      {/* Dark gradient overlay so buttons stay readable over any image */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/70" />
+    <div className="relative min-h-screen bg-[#0A0A0A] text-[#F5F0E8] flex flex-col overflow-hidden">
+      {/* Ambient arena glow — replaces the photo */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(201,162,39,0.08),transparent_60%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(185,28,28,0.06),transparent_50%)]" />
 
-      <div className="relative z-10 w-full max-w-sm flex flex-col gap-3">
+      {/* Scoreboard ticker */}
+      <div className="relative z-10 w-full border-b border-[#2a2a2a] overflow-hidden py-2">
+        <div className="flex gap-8 whitespace-nowrap animate-[scroll_18s_linear_infinite] font-mono text-[11px] tracking-widest text-[#8A8A8A]">
+          {Array(4).fill(0).map((_, i) => (
+            <span key={i} className="flex gap-8">
+              <span>CARD #001</span>
+              <span className="text-[#C9A227]">SANCTIONED</span>
+              <span>ROSTER: BUILDING</span>
+              <span className="text-[#B91C1C]">0 WINS · 0 LOSSES · 0 DRAWS</span>
+              <span>YOUR PROMOTION AWAITS</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Main event billing */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center">
+        <span className="font-mono text-xs tracking-[0.3em] text-[#C9A227] mb-4">
+          MAIN EVENT
+        </span>
+        <h1
+          className="text-6xl sm:text-8xl font-black uppercase leading-[0.9] tracking-tight"
+          style={{ fontFamily: "'Arial Narrow', 'Helvetica Neue Condensed', sans-serif" }}
+        >
+          MMA
+          <br />
+          Promoter
+        </h1>
+        <div className="mt-5 flex items-center gap-3 text-[#8A8A8A] text-sm">
+          <span className="h-px w-8 bg-[#8A8A8A]/40" />
+          <span>Build the roster. Book the cards. Run the promotion.</span>
+          <span className="h-px w-8 bg-[#8A8A8A]/40" />
+        </div>
+      </div>
+
+      {/* Ticket-stub actions */}
+      <div className="relative z-10 w-full max-w-sm mx-auto px-6 pb-14 flex flex-col gap-3">
         <button
           onClick={handleContinue}
-          className="w-full py-3 bg-neutral-900/90 border border-neutral-700 text-white rounded-lg font-medium"
+          className="group relative w-full py-4 bg-[#161616] border border-[#333] rounded-md font-semibold tracking-wide text-[#F5F0E8] hover:border-[#8A8A8A] transition-colors"
         >
-          Continue
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A] border border-[#333]" />
+          <span className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A] border border-[#333]" />
+          Continue Promotion
         </button>
         <button
           onClick={handleNewGame}
-          className="w-full py-3 bg-red-600 text-white rounded-lg font-semibold"
+          className="group relative w-full py-4 bg-[#B91C1C] rounded-md font-semibold tracking-wide text-[#F5F0E8] hover:bg-[#a11818] transition-colors"
         >
-          New Game
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A]" />
+          <span className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A]" />
+          New Promotion
         </button>
       </div>
+
+      <style jsx>{`
+        @keyframes scroll {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 }
