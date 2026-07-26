@@ -132,10 +132,10 @@ export default function ResultsScreen() {
           down.
         </p>
         <button
-          onClick={() => router.push("/booking")}
+          onClick={() => router.push("/dashboard")}
           className="w-full max-w-sm py-3 bg-white text-black rounded-lg font-medium flex items-center justify-center gap-2"
         >
-          Book Next Card <ChevronRight className="w-4 h-4" />
+          Back to Dashboard <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     );
@@ -149,11 +149,19 @@ export default function ResultsScreen() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-36">
-      <div className="px-4 pt-6 pb-4 border-b border-neutral-800">
-        <h1 className="text-lg font-semibold">Fight Night Results</h1>
-        <p className="text-xs text-neutral-500 mt-1">
-          Week {result.card.week}
-        </p>
+      <div className="px-4 pt-6 pb-4 border-b border-neutral-800 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Fight Night Results</h1>
+          <p className="text-xs text-neutral-500 mt-1">
+            Week {result.card.week}
+          </p>
+        </div>
+        <button
+          onClick={() => router.push("/history")}
+          className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5"
+        >
+          History
+        </button>
       </div>
 
       {/* Revenue banner */}
