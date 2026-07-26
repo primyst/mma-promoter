@@ -25,11 +25,9 @@ export default function StartScreen() {
 
   return (
     <div className="relative min-h-screen bg-[#0A0A0A] text-[#F5F0E8] flex flex-col overflow-hidden">
-      {/* Ambient arena glow — replaces the photo */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(201,162,39,0.08),transparent_60%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(185,28,28,0.06),transparent_50%)]" />
 
-      {/* Scoreboard ticker */}
       <div className="relative z-10 w-full border-b border-[#2a2a2a] overflow-hidden py-2">
         <div className="flex gap-8 whitespace-nowrap animate-[scroll_18s_linear_infinite] font-mono text-[11px] tracking-widest text-[#8A8A8A]">
           {Array(4).fill(0).map((_, i) => (
@@ -44,7 +42,6 @@ export default function StartScreen() {
         </div>
       </div>
 
-      {/* Main event billing */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center">
         <span className="font-mono text-xs tracking-[0.3em] text-[#C9A227] mb-4">
           MAIN EVENT
@@ -64,7 +61,6 @@ export default function StartScreen() {
         </div>
       </div>
 
-      {/* Ticket-stub actions */}
       <div className="relative z-10 w-full max-w-sm mx-auto px-6 pb-14 flex flex-col gap-3">
         <button
           onClick={handleContinue}
@@ -84,7 +80,7 @@ export default function StartScreen() {
         </button>
       </div>
 
-      <style jsx>{`
+      <style jsx global>{`
         @keyframes scroll {
           from { transform: translateX(0); }
           to { transform: translateX(-50%); }
