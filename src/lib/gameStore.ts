@@ -388,6 +388,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ...dueCard,
         isSimulated: true,
         revenue: netRevenue,
+        outcomes,
       };
       const updatedCards = [...cards];
       updatedCards[cardIndex] = updatedCard;
