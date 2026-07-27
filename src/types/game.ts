@@ -111,6 +111,7 @@ export interface FightCard {
     fotn: { fightId: string; fighterIds: string[] } | null;
     potn: { fightId: string; fighterId: string } | null;
   };
+  eventName: string; // e.g. "MP 12" for a numbered flagship event, "MP Fight Night 4" otherwise
 }
 
 // ============================================
@@ -142,6 +143,8 @@ export interface Promotion {
   money: number;
   reputation: number; // 0-100, affects fighter willingness to sign/re-sign
   currentWeek: number;
+  numberedEventCount: number; // flagship numbered events (e.g. "MP 12") — title fights
+  fightNightCount: number; // smaller unnumbered cards (e.g. "MP Fight Night 4")
 }
 
 // ============================================
