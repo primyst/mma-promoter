@@ -37,7 +37,10 @@ import {
   officialStatementPost,
   milestoneCongratsPost,
   businessMilestonePost,
+  fotnAnnouncementPost,
+  potnAnnouncementPost,
 } from "./promotionAccount";
+import { computeCardBonuses, BONUS_AMOUNTS } from "./fightBonuses";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -264,6 +267,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         promotion.currentWeek
       );
 
+      const cardBonuses = computeCardBonuses(dueCard.fights, outcomes, roster);
+
       const newTitleHistory = updateTitleHistory(
         dueCard.fights,
         outcomes,
@@ -382,13 +387,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
       );
 
       const revenue = estimateRevenue(dueCard, rosterWithFame);
-      const netRevenue = revenue - purseCost + sponsorPayout;
+
+      const bonusCost =
+        (cardBonuses.fotn ? BONUS_AMOUNTS.fotn : 0) +
+        (cardBonuses.potn ? BONUS_AMOUNTS.potn : 0);
+      const netRevenue = revenue - purseCost + sponsorPayout - bonusCost;
+
+      // Bonus winners get a fan heat bump — a standout performance should
+      // actually move the needle on how much fans want to see them again.
+      const bonusFighterIds = new Set([
+        ...(cardBonuses.fotn?.fighterIds ?? []),
+        ...(cardBonuses.potn ? [cardBonuses.potn.fighterId] : []),
+      ]);
+      const rosterWithBonusHeat = rosterWithFame.map((f) =>
+        bonusFighterIds.has(f.id)
+          ? { ...f, fanHeat: Math.min(100, f.fanHeat + 5) }
+          : f
+      );
 
       const updatedCard: FightCard = {
         ...dueCard,
         isSimulated: true,
         revenue: netRevenue,
         outcomes,
+        bonuses: cardBonuses,
       };
       const updatedCards = [...cards];
       updatedCards[cardIndex] = updatedCard;
@@ -402,14 +424,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const newFeedItems = generateFeedForCard(
         outcomes,
         dueCard.fights,
-        rosterWithFame,
+        rosterWithBonusHeat,
         promotion.currentWeek
       );
-      const ambientItems = generateAmbientNews(rosterWithFame, promotion.currentWeek);
+      const ambientItems = generateAmbientNews(rosterWithBonusHeat, promotion.currentWeek);
       const milestoneItems = generateMilestoneNews(
         fightedFighterIds,
         roster,
-        rosterWithFame,
+        rosterWithBonusHeat,
         promotion.name,
         promotion.currentWeek
       );
@@ -429,9 +451,43 @@ export const useGameStore = create<GameStore>((set, get) => ({
           relatedFighterIds: [],
         },
       ];
+
+      if (cardBonuses.fotn) {
+        const [idA, idB] = cardBonuses.fotn.fighterIds;
+        const nameA = rosterWithBonusHeat.find((f) => f.id === idA)?.name;
+        const nameB = rosterWithBonusHeat.find((f) => f.id === idB)?.name;
+        if (nameA && nameB) {
+          promotionFeedItems.push({
+            id: crypto.randomUUID(),
+            type: "promotion",
+            week: promotion.currentWeek,
+            authorName: promotion.name,
+            authorHandle: "@" + promotionHandle,
+            content: fotnAnnouncementPost(nameA, nameB, BONUS_AMOUNTS.fotn),
+            relatedFighterIds: [idA, idB],
+          });
+        }
+      }
+
+      if (cardBonuses.potn) {
+        const winnerName = rosterWithBonusHeat.find(
+          (f) => f.id === cardBonuses.potn!.fighterId
+        )?.name;
+        if (winnerName) {
+          promotionFeedItems.push({
+            id: crypto.randomUUID(),
+            type: "promotion",
+            week: promotion.currentWeek,
+            authorName: promotion.name,
+            authorHandle: "@" + promotionHandle,
+            content: potnAnnouncementPost(winnerName, BONUS_AMOUNTS.potn),
+            relatedFighterIds: [cardBonuses.potn.fighterId],
+          });
+        }
+      }
       for (const milestoneItem of milestoneItems) {
         if (milestoneItem.relatedFighterIds.length === 0) continue;
-        const fighterName = rosterWithFame.find(
+        const fighterName = rosterWithBonusHeat.find(
           (f) => f.id === milestoneItem.relatedFighterIds[0]
         )?.name;
         if (!fighterName) continue;
@@ -472,7 +528,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // run it now using the week we're advancing FROM (before increment),
       // so age-ups line up with the year that just ended.
       const retirementResult = processWeeklyAgingAndRetirement(
-        rosterWithFame,
+        rosterWithBonusHeat,
         newTitleHistory,
         promotion.currentWeek
       );
