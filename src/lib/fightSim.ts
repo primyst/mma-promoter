@@ -189,6 +189,11 @@ function computeFightScore(fighter: Fighter): number {
 }
 
 function determineFinishMethod(winner: Fighter, loser: Fighter): FinishMethod {
+  // Doctor stoppages are pure bad luck — a cut doesn't care how good either
+  // fighter is, so this rolls BEFORE any stat-based chances and at a flat
+  // rate regardless of who's winning.
+  if (Math.random() < 0.025) return "Doctor Stoppage";
+
   const koChance = (winner.striking / 100) * (1 - loser.chin / 150);
   const subChance = (winner.grappling / 100) * 0.4;
   const roll = Math.random();
@@ -247,6 +252,19 @@ export function applyFightResult(
     (outcome.method !== "Decision" ? FAME_GAIN.finish : 0) +
     (wasUpset ? FAME_GAIN.upset : 0);
 
+  // Elo update — this is what actually drives ranking movement, not win
+  // count. Beating someone rated well above you (like a champion) gains a
+  // lot; beating someone rated below you gains little. Losing to someone
+  // rated well above you (the champ) costs very little — that's expected.
+  // Losing to someone rated below you costs a lot, since that's the real
+  // upset. K=32 is the standard chess/Elo constant, works fine here too.
+  const K = 32;
+  const expectedWinner =
+    1 / (1 + Math.pow(10, (loser.eloRating - winner.eloRating) / 400));
+  const expectedLoser = 1 - expectedWinner;
+  const winnerEloChange = Math.round(K * (1 - expectedWinner));
+  const loserEloChange = Math.round(K * (0 - expectedLoser));
+
   const updatedWinner: Fighter = {
     ...winner,
     wins: winner.wins + 1,
@@ -255,6 +273,7 @@ export function applyFightResult(
     weeksUntilAvailable: outcome.method === "Decision" ? 2 : 3,
     fanHeat: clamp(winner.fanHeat + fanHeatGain(outcome), 0, 100),
     fame: winner.fame + fameGain,
+    eloRating: winner.eloRating + winnerEloChange,
     recentFights: pushRecentFight(winner, {
       opponentId: loser.id,
       opponentName: loser.name,
@@ -271,6 +290,7 @@ export function applyFightResult(
     health: outcome.method === "KO/TKO" ? "nursing" : "fine",
     weeksUntilAvailable: cooldownForLoss(outcome.method),
     fanHeat: clamp(loser.fanHeat - 2, 0, 100), // losing rarely kills fan heat much, upsets can even boost it later
+    eloRating: loser.eloRating + loserEloChange,
     recentFights: pushRecentFight(loser, {
       opponentId: winner.id,
       opponentName: winner.name,
