@@ -8,11 +8,9 @@ import { computeExpectedPurse } from "@/lib/contracts";
 import { getFightingStyle } from "@/lib/fightingStyle";
 import { getFameTier } from "@/lib/fame";
 import { getEligibleSponsors, SPONSOR_LIST } from "@/lib/sponsors";
+import { getMoraleDisplay } from "@/lib/momentumDisplay";
 import {
   Crown,
-  Flame,
-  Snowflake,
-  Minus,
   ArrowLeft,
   Trophy,
   ArrowUpCircle,
@@ -24,10 +22,13 @@ import {
 // HELPERS
 // ============================================
 
-function MomentumIcon({ momentum }: { momentum: string }) {
-  if (momentum === "hot") return <Flame className="w-4 h-4 text-orange-500" />;
-  if (momentum === "cold") return <Snowflake className="w-4 h-4 text-blue-400" />;
-  return <Minus className="w-4 h-4 text-neutral-400" />;
+function MoraleBadge({ momentum }: { momentum: string }) {
+  const morale = getMoraleDisplay(momentum as "hot" | "neutral" | "cold");
+  return (
+    <span className={`text-xs font-medium ${morale.colorClass}`}>
+      {morale.label} · {morale.percent}%
+    </span>
+  );
 }
 
 // ============================================
@@ -151,10 +152,7 @@ export default function FighterProfileScreen({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <MomentumIcon momentum={fighter.momentum} />
-          <span className="text-xs text-neutral-400 capitalize">
-            {fighter.momentum}
-          </span>
+          <MoraleBadge momentum={fighter.momentum} />
         </div>
       </div>
 
