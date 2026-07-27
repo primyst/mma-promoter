@@ -153,7 +153,7 @@ export default function ResultsScreen() {
         <div>
           <h1 className="text-lg font-semibold">Fight Night Results</h1>
           <p className="text-xs text-neutral-500 mt-1">
-            Week {result.card.week}
+            {result.card.eventName} · Week {result.card.week}
           </p>
         </div>
         <button
