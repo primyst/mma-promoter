@@ -41,6 +41,7 @@ import {
   potnAnnouncementPost,
 } from "./promotionAccount";
 import { computeCardBonuses, BONUS_AMOUNTS } from "./fightBonuses";
+import { generateEventName } from "./eventNaming";
 import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 // ============================================
@@ -109,6 +110,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     money: 0,
     reputation: 50,
     currentWeek: 1,
+    numberedEventCount: 0,
+    fightNightCount: 0,
   },
   roster: [],
   teams: [],
@@ -127,6 +130,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         money: 500_000, // starting bankroll
         reputation: 50,
         currentWeek: 1,
+        numberedEventCount: 0,
+        fightNightCount: 0,
       },
       roster,
       teams,
@@ -193,12 +198,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       };
     }
 
+    const hasTitleFight = draftCard.some((f) => f.isTitleFight);
+    const { eventName, updatedPromotion: promotionWithEventCount } =
+      generateEventName(promotion, hasTitleFight);
+
     const newCard: FightCard = {
       id: crypto.randomUUID(),
       week: targetWeek,
       tier: "Main Card",
       fights: draftCard,
       isSimulated: false,
+      eventName,
     };
 
     // Fight week events (weigh-in + press conference) run for the headline
@@ -229,7 +239,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           content: cardAnnouncementPost(
             fighterA.name,
             fighterB.name,
-            targetWeek,
+            eventName,
             headliner.isTitleFight
           ),
           relatedFighterIds: [fighterA.id, fighterB.id],
@@ -241,6 +251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       cards: [...cards, newCard],
       feed: [...newFeedItems, ...feed],
       pendingIncident: newIncident,
+      promotion: promotionWithEventCount,
       draftCard: [],
     });
 
