@@ -107,6 +107,10 @@ export interface FightCard {
   isSimulated: boolean;
   revenue?: number; // filled in after simulation
   outcomes?: FightOutcome[]; // filled in after simulation — needed for history browsing
+  bonuses?: {
+    fotn: { fightId: string; fighterIds: string[] } | null;
+    potn: { fightId: string; fighterId: string } | null;
+  };
 }
 
 // ============================================
