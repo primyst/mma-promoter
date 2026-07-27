@@ -144,8 +144,30 @@ export function milestoneCongratsPost(fighterName: string): string {
 }
 
 // ============================================
-// BUSINESS MILESTONES (occasional, tied to card count / revenue totals)
+// FIGHT BONUSES (Fight of the Night / Performance of the Night)
 // ============================================
+
+export function fotnAnnouncementPost(
+  fighterAName: string,
+  fighterBName: string,
+  amount: number
+): string {
+  const templates = [
+    `Fight of the Night goes to ${fighterAName} and ${fighterBName}. That's an extra $${amount.toLocaleString()} each — they earned every cent. 🥊`,
+    `That's what Fight of the Night looks like. Bonus checks going out to ${fighterAName} and ${fighterBName}.`,
+    `${fighterAName} vs ${fighterBName} takes home Fight of the Night. Absolute war.`,
+  ];
+  return pick(templates);
+}
+
+export function potnAnnouncementPost(fighterName: string, amount: number): string {
+  const templates = [
+    `Performance of the Night: ${fighterName}. That finish earns an extra $${amount.toLocaleString()}. 💥`,
+    `${fighterName} just picked up a nice bonus for that performance. Well deserved.`,
+    `Performance bonus goes to ${fighterName} tonight. That's how you make a statement.`,
+  ];
+  return pick(templates);
+}
 
 export function businessMilestonePost(cardCount: number): string {
   const templates = [
