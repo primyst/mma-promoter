@@ -213,6 +213,18 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
     activeSponsorId: null,
     purse,
 
+    // Starting Elo — champions rate highest, breakouts get a speculative
+    // bump (raw talent, unproven), everyone else scales with tier. This is
+    // what actually drives ranking movement, not win-loss totals.
+    eloRating:
+      tier === "champion"
+        ? randomInRange(1650, 1750)
+        : tier === "breakout"
+        ? randomInRange(1500, 1600)
+        : tier === "contender"
+        ? randomInRange(1450, 1600)
+        : randomInRange(1250, 1450),
+
     isChampion: false, // assigned later by assignRankings()
     isRetired: false,
   };
@@ -232,36 +244,16 @@ export interface StarterRosterResult {
   teams: Team[];
 }
 
+/**
+ * Starts a promotion with an empty roster and zero fighters signed —
+ * only the world's camps/teams exist on day one. Every fighter from here
+ * on comes through scouting or free agency, nothing is handed to you.
+ */
 export function generateStarterRoster(
   weightClasses: WeightClass[] = ["Lightweight", "Welterweight", "Middleweight"]
 ): StarterRosterResult {
-  const roster: Fighter[] = [];
   const teams = generateTeams(1);
-
-  for (const wc of weightClasses) {
-    const champion = generateFighter({ weightClass: wc, tier: "champion" });
-    const contenders = Array.from({ length: 3 }, () =>
-      generateFighter({ weightClass: wc, tier: "contender" })
-    );
-    const prospects = Array.from({ length: 4 }, () =>
-      generateFighter({ weightClass: wc, tier: "prospect" })
-    );
-
-    const divisionFighters = [champion, ...contenders, ...prospects];
-    assignRankings(divisionFighters, champion.id);
-
-    // Roughly 55% of fighters belong to a camp — the rest train
-    // independently, same as real life.
-    divisionFighters.forEach((fighter) => {
-      if (maybe(0.55)) {
-        fighter.teamId = randomFrom(teams).id;
-      }
-    });
-
-    roster.push(...divisionFighters);
-  }
-
-  return { roster, teams };
+  return { roster: [], teams };
 }
 
 function maybe(chance: number): boolean {
@@ -276,7 +268,7 @@ function maybe(chance: number): boolean {
 function assignRankings(fighters: Fighter[], championId: string): void {
   const contenders = fighters
     .filter((f) => f.id !== championId)
-    .sort((a, b) => b.wins - b.losses - (a.wins - a.losses));
+    .sort((a, b) => b.eloRating - a.eloRating);
 
   contenders.forEach((fighter, index) => {
     fighter.ranking = index; // #1 contender gets index 0, displayed as #1
