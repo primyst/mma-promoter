@@ -4,11 +4,9 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { getBookableFighters, validateMatchup } from "@/lib/booking";
+import { getMoraleDisplay } from "@/lib/momentumDisplay";
 import { Fighter, BookedFight, WeightClass, WEIGHT_CLASS_ORDER } from "@/types/game";
 import {
-  Flame,
-  Snowflake,
-  Minus,
   ShieldAlert,
   Crown,
   Swords,
@@ -19,13 +17,16 @@ import {
 } from "lucide-react";
 
 // ============================================
-// MOMENTUM ICON HELPER
+// MOMENTUM DISPLAY HELPER
 // ============================================
 
-function MomentumIcon({ momentum }: { momentum: Fighter["momentum"] }) {
-  if (momentum === "hot") return <Flame className="w-4 h-4 text-orange-500" />;
-  if (momentum === "cold") return <Snowflake className="w-4 h-4 text-blue-400" />;
-  return <Minus className="w-4 h-4 text-neutral-400" />;
+function MoraleBadge({ momentum }: { momentum: Fighter["momentum"] }) {
+  const morale = getMoraleDisplay(momentum);
+  return (
+    <span className={`text-[10px] font-medium ${morale.colorClass}`}>
+      {morale.percent}%
+    </span>
+  );
 }
 
 // ============================================
@@ -51,7 +52,7 @@ function FighterRow({
       }`}
     >
       <div className="flex items-center gap-3 min-w-0">
-        <MomentumIcon momentum={fighter.momentum} />
+        <MoraleBadge momentum={fighter.momentum} />
         <div className="text-left min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-medium text-sm truncate">{fighter.name}</span>
