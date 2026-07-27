@@ -123,6 +123,9 @@ export default function HistoryScreen() {
                         : fight.fighterAId;
                     const loser = rosterMap.get(loserId);
 
+                    const isFotn = card.bonuses?.fotn?.fightId === fight.id;
+                    const isPotn = card.bonuses?.potn?.fightId === fight.id;
+
                     return (
                       <div
                         key={fight.id}
@@ -132,6 +135,16 @@ export default function HistoryScreen() {
                           {winner?.name ?? "?"}{" "}
                           <span className="text-neutral-600">def.</span>{" "}
                           {loser?.name ?? "?"}
+                          {isFotn && (
+                            <span className="ml-1.5 text-[9px] uppercase text-yellow-500 border border-yellow-700/50 rounded px-1">
+                              FOTN
+                            </span>
+                          )}
+                          {isPotn && (
+                            <span className="ml-1.5 text-[9px] uppercase text-purple-400 border border-purple-700/50 rounded px-1">
+                              POTN
+                            </span>
+                          )}
                         </span>
                         <span className="text-neutral-500">
                           {outcome?.method}
