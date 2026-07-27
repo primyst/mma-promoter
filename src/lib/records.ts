@@ -175,13 +175,16 @@ export function getPoundForPound(
       const streak = getCurrentWinStreak(fighter);
       const defenses = defensesByFighter.get(fighter.id) ?? 0;
 
+      // Elo is the backbone here — it already reflects quality of
+      // opposition beaten, which raw win count can't capture. Everything
+      // else is a smaller adjustment on top (activity, spectacle, titles).
       const score =
+        fighter.eloRating * 0.15 +
         (fighter.isChampion ? 40 : 0) +
         streak * 8 +
-        fighter.wins * 2 +
         finishes * 5 +
         defenses * 10 +
-        fighter.fanHeat * 0.5;
+        fighter.fanHeat * 0.3;
 
       return { fighter, score, streak, defenses };
     })
