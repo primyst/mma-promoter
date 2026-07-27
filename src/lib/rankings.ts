@@ -1,16 +1,23 @@
 import { Fighter } from "@/types/game";
 
 /**
- * Recalculates ranking numbers for every division based on current
- * win-loss record. Call this after every simulated card — rankings are
- * NOT static, they need to reflect the roster's current state, including:
+ * Recalculates ranking numbers for every division based on current Elo
+ * rating. Call this after every simulated card — rankings are NOT static,
+ * they need to reflect the roster's current state, including:
  *
  * - A former champion who just lost the belt needs a real number again
  *   (previously they'd keep `ranking: null` forever since champions never
  *   carried a number, leaving them stuck displaying as "–").
  * - A new champion needs their OLD contender ranking cleared (previously
  *   they'd keep showing their pre-title number even after winning the belt).
- * - Anyone else whose win-loss record shifted should reshuffle naturally.
+ * - Anyone else whose Elo shifted should reshuffle naturally — beating a
+ *   higher-rated opponent can vault someone past several fighters at once,
+ *   exactly like a real ranking panel reacting to a statement win.
+ *
+ * Sorting by Elo (not win-loss differential) is what makes rankings behave
+ * realistically: losing to the champion barely moves you, since Elo expects
+ * that outcome; losing to someone ranked below you costs a lot, since
+ * that's the actual upset. Win-loss differential can't tell those apart.
  *
  * Retired fighters are excluded from ranking entirely.
  */
@@ -30,7 +37,7 @@ export function recalculateRankings(roster: Fighter[]): Fighter[] {
     const champion = fighters.find((f) => f.isChampion);
     const contenders = fighters
       .filter((f) => !f.isChampion)
-      .sort((a, b) => b.wins - b.losses - (a.wins - a.losses));
+      .sort((a, b) => b.eloRating - a.eloRating);
 
     contenders.forEach((fighter, index) => {
       rankingById.set(fighter.id, index); // #1 contender = index 0
