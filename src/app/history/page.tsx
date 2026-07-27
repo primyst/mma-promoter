@@ -81,7 +81,7 @@ export default function HistoryScreen() {
                 <div className="text-left">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-neutral-300">
-                      Week {card.week}
+                      {card.eventName}
                     </span>
                     {mainEvent?.isTitleFight && (
                       <Trophy className="w-3 h-3 text-yellow-500" />
