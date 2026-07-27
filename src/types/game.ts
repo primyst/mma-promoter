@@ -80,6 +80,7 @@ export interface Fighter {
 
   fame: number; // persistent, accumulates from specific actions (wins, finishes, defenses) — never a live-computed formula
   activeSponsorId: string | null;
+  eloRating: number; // drives ranking order — beating someone above you matters far more than raw win count
 
   isChampion: boolean;
   isRetired: boolean;
