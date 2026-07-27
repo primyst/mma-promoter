@@ -28,20 +28,20 @@ function pick<T>(arr: T[]): T {
 export function cardAnnouncementPost(
   fighterAName: string,
   fighterBName: string,
-  week: number,
+  eventName: string,
   isTitleFight: boolean
 ): string {
   const templates = isTitleFight
     ? [
-        `TITLE FIGHT ANNOUNCED. ${fighterAName} vs ${fighterBName}, Week ${week}. The belt is on the line. 🏆`,
-        `Championship gold is up for grabs — ${fighterAName} vs ${fighterBName} set for Week ${week}. Mark your calendars.`,
-        `The wait is over. ${fighterAName} vs ${fighterBName} for the title, Week ${week}. This is the one.`,
+        `TWO EPIC TITLE FIGHTS 🏆 ${fighterAName} vs ${fighterBName} headlines ${eventName}. The belt is on the line.`,
+        `Championship gold is up for grabs — ${fighterAName} vs ${fighterBName} set for ${eventName}. Get your tickets. 🎟️`,
+        `The wait is over. ${fighterAName} vs ${fighterBName} for the title at ${eventName}. This is the one.`,
       ]
     : [
-        `Locked in: ${fighterAName} vs ${fighterBName}, Week ${week}. Don't miss this one.`,
-        `New matchup announced — ${fighterAName} takes on ${fighterBName} in Week ${week}.`,
-        `Card update: ${fighterAName} vs ${fighterBName} is official for Week ${week}. 🔥`,
-        `Just booked: ${fighterAName} vs ${fighterBName}. See you Week ${week}.`,
+        `Locked in: ${fighterAName} vs ${fighterBName} at ${eventName}. Don't miss this one.`,
+        `New matchup announced — ${fighterAName} takes on ${fighterBName} at ${eventName}.`,
+        `Card update: ${fighterAName} vs ${fighterBName} is official for ${eventName}. 🔥`,
+        `Just booked: ${fighterAName} vs ${fighterBName}. See you at ${eventName}.`,
       ];
   return pick(templates);
 }
