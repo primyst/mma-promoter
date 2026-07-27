@@ -4,11 +4,9 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { Fighter, WeightClass } from "@/types/game";
+import { getMoraleDisplay } from "@/lib/momentumDisplay";
 import {
   Crown,
-  Flame,
-  Snowflake,
-  Minus,
   HeartPulse,
   ChevronDown,
   ChevronUp,
@@ -18,10 +16,13 @@ import {
 // STATUS HELPERS
 // ============================================
 
-function MomentumIcon({ momentum }: { momentum: Fighter["momentum"] }) {
-  if (momentum === "hot") return <Flame className="w-3.5 h-3.5 text-orange-500" />;
-  if (momentum === "cold") return <Snowflake className="w-3.5 h-3.5 text-blue-400" />;
-  return <Minus className="w-3.5 h-3.5 text-neutral-500" />;
+function MoraleBadge({ momentum }: { momentum: Fighter["momentum"] }) {
+  const morale = getMoraleDisplay(momentum);
+  return (
+    <span className={`text-[10px] font-medium ${morale.colorClass}`}>
+      {morale.percent}%
+    </span>
+  );
 }
 
 function statusLabel(fighter: Fighter): { text: string; color: string } {
@@ -58,10 +59,10 @@ function RosterFighterRow({ fighter }: { fighter: Fighter }) {
               "—"
             )}
           </span>
-          <MomentumIcon momentum={fighter.momentum} />
+          <MoraleBadge momentum={fighter.momentum} />
           <div className="text-left min-w-0">
             <div className="font-medium text-sm truncate">
-              {fighter.name}
+              {fighter.countryFlag} {fighter.name}
               {fighter.nickname && (
                 <span className="text-neutral-500 font-normal">
                   {" "}
@@ -98,6 +99,20 @@ function RosterFighterRow({ fighter }: { fighter: Fighter }) {
                 <div className="text-sm font-semibold">{stat.value}</div>
               </div>
             ))}
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-neutral-400">
+            <span>Morale</span>
+            <span className={getMoraleDisplay(fighter.momentum).colorClass}>
+              {getMoraleDisplay(fighter.momentum).label} ·{" "}
+              {getMoraleDisplay(fighter.momentum).percent}%
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-2">
+            <div
+              className={`h-full ${getMoraleDisplay(fighter.momentum).barColorClass}`}
+              style={{ width: `${getMoraleDisplay(fighter.momentum).percent}%` }}
+            />
           </div>
 
           <div className="flex items-center justify-between text-xs text-neutral-400">
@@ -185,6 +200,12 @@ export default function RosterScreen() {
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => router.push("/scouting")}
+            className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5"
+          >
+            Scout
+          </button>
           <button
             onClick={() => router.push("/teams")}
             className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1.5"
