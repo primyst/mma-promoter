@@ -179,9 +179,9 @@ export default function BookingScreen() {
   );
 
   const takenWeeks = useMemo(() => {
-    const weeks = new Set<number>();
+    const weeks = new Map<number, string>();
     for (const card of cards) {
-      if (!card.isSimulated) weeks.add(card.week);
+      if (!card.isSimulated) weeks.set(card.week, card.eventName);
     }
     return weeks;
   }, [cards]);
@@ -189,10 +189,14 @@ export default function BookingScreen() {
   useEffect(() => {
     const currentTarget = promotion.currentWeek + weeksAhead;
     if (takenWeeks.has(currentTarget)) {
-      const firstOpen = [0, 1, 2, 3, 4, 6, 8].find(
-        (w) => !takenWeeks.has(promotion.currentWeek + w)
-      );
-      if (firstOpen !== undefined) setWeeksAhead(firstOpen);
+      let firstOpen = weeksAhead;
+      for (let w = 0; w < 52; w++) {
+        if (!takenWeeks.has(promotion.currentWeek + w)) {
+          firstOpen = w;
+          break;
+        }
+      }
+      setWeeksAhead(firstOpen);
     }
   }, [takenWeeks, promotion.currentWeek]);
 
@@ -358,28 +362,48 @@ export default function BookingScreen() {
         )}
 
         <div>
-          <p className="text-xs text-neutral-500 mb-1.5 flex items-center gap-1.5">
+          <p className="text-xs text-neutral-500 mb-2 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" /> Schedule for
           </p>
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {[0, 1, 2, 3, 4, 6, 8].map((w) => {
+          <div className="grid grid-cols-4 gap-1.5">
+            {Array.from({ length: 26 }, (_, w) => w).map((w) => {
               const targetWeek = promotion.currentWeek + w;
-              const isTaken = takenWeeks.has(targetWeek);
+              const eventName = takenWeeks.get(targetWeek);
+              const isTaken = !!eventName;
+              const isCurrentWeek = w === 0;
+              const isSelected = weeksAhead === w;
+
               return (
                 <button
                   key={w}
                   onClick={() => !isTaken && setWeeksAhead(w)}
                   disabled={isTaken}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border shrink-0 ${
+                  className={`rounded-md py-2 px-1 text-center border ${
                     isTaken
-                      ? "border-neutral-800 text-neutral-600 line-through cursor-not-allowed"
-                      : weeksAhead === w
-                      ? "bg-white text-black border-white"
-                      : "border-neutral-700 text-neutral-400"
+                      ? "border-red-900 bg-red-950/30 cursor-not-allowed"
+                      : isSelected
+                      ? "bg-white border-white"
+                      : isCurrentWeek
+                      ? "border-neutral-600"
+                      : "border-neutral-800"
                   }`}
                 >
-                  {w === 0 ? "This week" : `Week ${targetWeek}`}
-                  {isTaken ? " · booked" : ""}
+                  <div
+                    className={`text-[10px] font-medium ${
+                      isTaken
+                        ? "text-red-400"
+                        : isSelected
+                        ? "text-black"
+                        : "text-neutral-300"
+                    }`}
+                  >
+                    {isCurrentWeek ? "Now" : `Wk ${targetWeek}`}
+                  </div>
+                  {isTaken && (
+                    <div className="text-[8px] text-red-500 mt-0.5 truncate">
+                      {eventName}
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -395,51 +419,40 @@ export default function BookingScreen() {
         </button>
       </div>
 
-      {/* Upcoming scheduled cards (calendar view) */}
+      {/* Matchup details for booked cards — the grid above shows WHEN,
+          this shows WHO, so the two don't duplicate each other. */}
       {upcomingCards.length > 0 && (
         <div className="px-4 py-4 border-t border-neutral-800 space-y-2">
           <h2 className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
-            Upcoming Calendar
+            Booked Cards
           </h2>
-          {upcomingCards.map((card) => {
-            const isThisWeek = card.week === promotion.currentWeek;
-            return (
-              <div
-                key={card.id}
-                className={`rounded-lg px-4 py-3 border ${
-                  isThisWeek
-                    ? "bg-red-950/30 border-red-700"
-                    : "bg-neutral-900 border-neutral-800"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span
-                    className={`text-xs font-medium ${
-                      isThisWeek ? "text-red-400" : "text-neutral-300"
-                    }`}
-                  >
-                    Week {card.week}
-                    {isThisWeek ? " — FIGHT WEEK" : ""}
-                  </span>
-                  <span className="text-[10px] text-neutral-500">
-                    {card.fights.length}{" "}
-                    {card.fights.length === 1 ? "fight" : "fights"}
-                  </span>
-                </div>
-                {card.fights.map((fight) => {
-                  const a = rosterMap.get(fight.fighterAId);
-                  const b = rosterMap.get(fight.fighterBId);
-                  return (
-                    <div key={fight.id} className="text-xs text-neutral-500">
-                      {a?.name} vs {b?.name}
-                      {fight.isTitleFight ? " · Title" : ""}
-                      {fight.isMainEvent ? " · Main" : ""}
-                    </div>
-                  );
-                })}
+          {upcomingCards.map((card) => (
+            <div
+              key={card.id}
+              className="rounded-lg px-4 py-3 border border-neutral-800 bg-neutral-900"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-neutral-300">
+                  {card.eventName}
+                </span>
+                <span className="text-[10px] text-neutral-500">
+                  {card.fights.length}{" "}
+                  {card.fights.length === 1 ? "fight" : "fights"}
+                </span>
               </div>
-            );
-          })}
+              {card.fights.map((fight) => {
+                const a = rosterMap.get(fight.fighterAId);
+                const b = rosterMap.get(fight.fighterBId);
+                return (
+                  <div key={fight.id} className="text-xs text-neutral-500">
+                    {a?.name} vs {b?.name}
+                    {fight.isTitleFight ? " · Title" : ""}
+                    {fight.isMainEvent ? " · Main" : ""}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
 
