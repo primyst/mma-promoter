@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
 import { generateStarterRoster } from "@/lib/generateRoster";
@@ -9,6 +10,10 @@ export default function StartScreen() {
   const initNewGame = useGameStore((s) => s.initNewGame);
   const loadFromSave = useGameStore((s) => s.loadFromSave);
 
+  const [showNewGameForm, setShowNewGameForm] = useState(false);
+  const [promotionName, setPromotionName] = useState("");
+  const [promotionAbbreviation, setPromotionAbbreviation] = useState("");
+
   function handleContinue() {
     if (loadFromSave()) {
       router.push("/dashboard");
@@ -17,9 +22,13 @@ export default function StartScreen() {
     }
   }
 
-  function handleNewGame() {
-    const { roster, teams } = generateStarterRoster();
-    initNewGame("My Promotion", roster, teams);
+  function handleStartNewGame() {
+    const name = promotionName.trim();
+    const abbreviation = promotionAbbreviation.trim().toUpperCase();
+    if (!name || !abbreviation) return;
+
+    const { roster, teams, freeAgents } = generateStarterRoster();
+    initNewGame(name, abbreviation, roster, teams, freeAgents);
     router.push("/dashboard");
   }
 
@@ -70,14 +79,52 @@ export default function StartScreen() {
           <span className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A] border border-[#333]" />
           Continue Promotion
         </button>
-        <button
-          onClick={handleNewGame}
-          className="group relative w-full py-4 bg-[#B91C1C] rounded-md font-semibold tracking-wide text-[#F5F0E8] hover:bg-[#a11818] transition-colors"
-        >
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A]" />
-          <span className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A]" />
-          New Promotion
-        </button>
+
+        {!showNewGameForm ? (
+          <button
+            onClick={() => setShowNewGameForm(true)}
+            className="group relative w-full py-4 bg-[#B91C1C] rounded-md font-semibold tracking-wide text-[#F5F0E8] hover:bg-[#a11818] transition-colors"
+          >
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A]" />
+            <span className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-3 w-3 rounded-full bg-[#0A0A0A]" />
+            New Promotion
+          </button>
+        ) : (
+          <div className="w-full bg-[#161616] border border-[#333] rounded-md p-4 flex flex-col gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-[#8A8A8A]">
+                Promotion Name
+              </label>
+              <input
+                autoFocus
+                value={promotionName}
+                onChange={(e) => setPromotionName(e.target.value)}
+                placeholder="e.g. Apex Fighting Championship"
+                maxLength={40}
+                className="mt-1 w-full bg-[#0A0A0A] border border-[#333] rounded px-3 py-2 text-sm text-[#F5F0E8] placeholder:text-[#5a5a5a] focus:outline-none focus:border-[#8A8A8A]"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-[#8A8A8A]">
+                Abbreviation
+              </label>
+              <input
+                value={promotionAbbreviation}
+                onChange={(e) => setPromotionAbbreviation(e.target.value.slice(0, 6))}
+                placeholder="e.g. AFC"
+                maxLength={6}
+                className="mt-1 w-full bg-[#0A0A0A] border border-[#333] rounded px-3 py-2 text-sm text-[#F5F0E8] placeholder:text-[#5a5a5a] uppercase focus:outline-none focus:border-[#8A8A8A]"
+              />
+            </div>
+            <button
+              onClick={handleStartNewGame}
+              disabled={!promotionName.trim() || !promotionAbbreviation.trim()}
+              className="w-full py-3 bg-[#B91C1C] rounded-md font-semibold tracking-wide text-[#F5F0E8] hover:bg-[#a11818] disabled:opacity-40 disabled:hover:bg-[#B91C1C] transition-colors"
+            >
+              Launch Promotion
+            </button>
+          </div>
+        )}
       </div>
 
       <style jsx global>{`

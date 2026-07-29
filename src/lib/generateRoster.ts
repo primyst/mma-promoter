@@ -101,7 +101,10 @@ export function generateTeams(startWeek: number = 1): Team[] {
 
 export interface GenerateFighterOptions {
   weightClass?: WeightClass;
-  tier?: "prospect" | "contender" | "champion" | "breakout"; // affects stat range + ranking
+  // "green" = scouted newbie, next to no professional record, all potential
+  // and no proof yet. "prospect" = a free agent — already a small pro
+  // record, a known (if modest) quantity. Both can roll "breakout".
+  tier?: "green" | "prospect" | "contender" | "champion" | "breakout";
 }
 
 export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
@@ -118,7 +121,9 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
       ? [75, 92]
       : tier === "contender"
       ? [65, 85]
-      : [45, 70];
+      : tier === "green"
+      ? [40, 62] // true unknown — stats haven't been proven against real competition
+      : [50, 72]; // prospect (free agent) — a bit more seasoned than green
 
   const [min, max] = statRange;
 
@@ -129,7 +134,9 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
       ? randomInRange(8, 16)
       : tier === "breakout"
       ? randomInRange(0, 2) // barely any record — the hype is all in the stats
-      : randomInRange(0, 6);
+      : tier === "green"
+      ? randomInRange(0, 1) // scouted straight out of the amateurs/regional scene
+      : randomInRange(3, 10); // prospect (free agent) — a small pro record already
 
   const losses =
     tier === "champion"
@@ -138,7 +145,9 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
       ? randomInRange(1, 5)
       : tier === "breakout"
       ? 0 // undefeated, that's part of the hype
-      : randomInRange(0, 4);
+      : tier === "green"
+      ? 0 // hasn't been tested enough to have lost yet
+      : randomInRange(1, 6); // prospect (free agent)
 
   const fanHeat =
     tier === "champion"
@@ -147,7 +156,9 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
       ? randomInRange(45, 65) // buzz without a real body of work yet
       : tier === "contender"
       ? randomInRange(40, 70)
-      : randomInRange(10, 40);
+      : tier === "green"
+      ? randomInRange(5, 20) // nobody knows this name yet
+      : randomInRange(15, 40);
 
   // Purse scales with how big a draw this fighter is — champions and
   // hot-heat fighters cost real money to book, prospects are cheap.
@@ -157,8 +168,9 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
     (tier === "champion" ? 15000 : 0);
 
   // Age scales roughly with tier — champions and contenders have had time
-  // to build a record, breakouts are young hype, prospects span a wider
-  // range since not everyone breaks through at the same age.
+  // to build a record, breakouts are young hype, green scouting finds are
+  // the youngest of all (barely out of the amateurs), free-agent prospects
+  // span a slightly wider range since they've already had a few pro fights.
   const age =
     tier === "champion"
       ? randomInRange(27, 36)
@@ -166,7 +178,9 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
       ? randomInRange(20, 24)
       : tier === "contender"
       ? randomInRange(24, 33)
-      : randomInRange(21, 30);
+      : tier === "green"
+      ? randomInRange(18, 23)
+      : randomInRange(23, 31);
 
   return {
     id: crypto.randomUUID(),
@@ -209,6 +223,8 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
         ? randomInRange(20, 45)
         : tier === "contender"
         ? randomInRange(35, 80)
+        : tier === "green"
+        ? randomInRange(0, 8)
         : randomInRange(5, 25),
     activeSponsorId: null,
     purse,
@@ -223,10 +239,14 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
         ? randomInRange(1500, 1600)
         : tier === "contender"
         ? randomInRange(1450, 1600)
+        : tier === "green"
+        ? randomInRange(1150, 1300)
         : randomInRange(1250, 1450),
 
     isChampion: false, // assigned later by assignRankings()
     isRetired: false,
+
+    potential: rollPotential(tier),
   };
 }
 
@@ -242,22 +262,58 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
 export interface StarterRosterResult {
   roster: Fighter[];
   teams: Team[];
+  freeAgents: Fighter[];
+}
+
+/**
+ * Generates a browsable pool of unsigned free agents spread across weight
+ * classes — mostly prospects, with an occasional breakout find, so the
+ * Dashboard's Free Agents section always has something worth looking at.
+ */
+export function generateFreeAgentPool(count: number = 12): Fighter[] {
+  return Array.from({ length: count }, () => {
+    const weightClass = randomFrom(WEIGHT_CLASSES);
+    const tier = maybe(0.1) ? "breakout" : "prospect";
+    const fighter = generateFighter({ weightClass, tier });
+    fighter.contractFightsRemaining = null; // unsigned
+    return fighter;
+  });
 }
 
 /**
  * Starts a promotion with an empty roster and zero fighters signed —
- * only the world's camps/teams exist on day one. Every fighter from here
- * on comes through scouting or free agency, nothing is handed to you.
+ * only the world's camps/teams (and a starting free-agent pool) exist on
+ * day one. Every fighter from here on comes through scouting or signing
+ * a free agent directly, nothing is handed to you.
  */
-export function generateStarterRoster(
-  weightClasses: WeightClass[] = ["Lightweight", "Welterweight", "Middleweight"]
-): StarterRosterResult {
+export function generateStarterRoster(): StarterRosterResult {
   const teams = generateTeams(1);
-  return { roster: [], teams };
+  return { roster: [], teams, freeAgents: generateFreeAgentPool() };
 }
 
 function maybe(chance: number): boolean {
   return Math.random() < chance;
+}
+
+/**
+ * Rolls a hidden potential tier for a fighter. Weighted so most fighters
+ * land in the middle — elite ceilings and genuine busts are both rare,
+ * same distribution regardless of what their current stats look like.
+ * A "breakout" scouting find skews the roll toward the high end (that's
+ * the whole point of the hype), but is never a guaranteed "elite".
+ */
+function rollPotential(tier: GenerateFighterOptions["tier"]): Fighter["potential"] {
+  const roll = Math.random();
+  if (tier === "breakout") {
+    if (roll < 0.35) return "elite";
+    if (roll < 0.75) return "good";
+    if (roll < 0.95) return "neutral";
+    return "bad";
+  }
+  if (roll < 0.12) return "elite";
+  if (roll < 0.45) return "good";
+  if (roll < 0.85) return "neutral";
+  return "bad";
 }
 
 /**

@@ -84,6 +84,12 @@ export interface Fighter {
 
   isChampion: boolean;
   isRetired: boolean;
+
+  // Hidden — never shown directly in roster/fighter UI. Governs how a
+  // fighter's stats trend over time as they age/develop; separate from
+  // their current stat block so a strong prospect isn't a guaranteed
+  // future star (and a weak one isn't a guaranteed bust).
+  potential: "elite" | "good" | "neutral" | "bad";
 }
 
 // ============================================
@@ -141,6 +147,7 @@ export interface FightOutcome {
 
 export interface Promotion {
   name: string;
+  abbreviation: string; // e.g. "MP" — used for event names, social handles
   money: number;
   reputation: number; // 0-100, affects fighter willingness to sign/re-sign
   currentWeek: number;
@@ -234,6 +241,7 @@ export interface ControversyEvent {
 export interface GameState {
   promotion: Promotion;
   roster: Fighter[];
+  freeAgents: Fighter[]; // unsigned fighters browsable from the Dashboard
   teams: Team[];
   cards: FightCard[]; // history AND future scheduled cards, keyed by card.week
   feed: FeedItem[];

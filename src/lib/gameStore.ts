@@ -22,6 +22,8 @@ import { runFightWeek, resolveIncident } from "./fightWeekEvents";
 import { recalculateRankings } from "./rankings";
 import { decrementContract, evaluateContractOffer } from "./contracts";
 import { scoutForTalent as scoutForTalentLogic, ScoutTier } from "./scouting";
+import { generateFreeAgentPool } from "./generateRoster";
+import { developFighter } from "./developmentSystem";
 import { processWeeklyAgingAndRetirement } from "./retirement";
 import { getFameTier, FAME_GAIN } from "./fame";
 import { getEligibleSponsors, checkSingleFightObjective, SPONSOR_LIST } from "./sponsors";
@@ -50,7 +52,13 @@ import { WeightClass, Incident, IncidentChoice, Team } from "@/types/game";
 
 interface GameStore extends GameState {
   // Setup
-  initNewGame: (promotionName: string, roster: Fighter[], teams: Team[]) => void;
+  initNewGame: (
+    promotionName: string,
+    promotionAbbreviation: string,
+    roster: Fighter[],
+    teams: Team[],
+    freeAgents: Fighter[]
+  ) => void;
   loadFromSave: () => boolean; // returns true if a save existed
 
   // Booking
@@ -89,6 +97,7 @@ interface GameStore extends GameState {
     tier: ScoutTier
   ) => { success: boolean; error?: string; candidates?: Fighter[] };
   signProspect: (candidate: Fighter) => void;
+  signFreeAgent: (fighterId: string) => void;
 
   // Sponsors
   signSponsor: (fighterId: string, sponsorId: string) => { success: boolean; error?: string };
@@ -107,6 +116,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ---- initial state ----
   promotion: {
     name: "",
+    abbreviation: "",
     money: 0,
     reputation: 50,
     currentWeek: 1,
@@ -114,6 +124,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     fightNightCount: 0,
   },
   roster: [],
+  freeAgents: [],
   teams: [],
   cards: [],
   feed: [],
@@ -123,10 +134,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   draftCard: [],
 
   // ---- setup ----
-  initNewGame: (promotionName, roster, teams) => {
+  initNewGame: (promotionName, promotionAbbreviation, roster, teams, freeAgents) => {
     const newState: GameState = {
       promotion: {
         name: promotionName,
+        abbreviation: promotionAbbreviation,
         money: 500_000, // starting bankroll
         reputation: 50,
         currentWeek: 1,
@@ -134,6 +146,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         fightNightCount: 0,
       },
       roster,
+      freeAgents,
       teams,
       cards: [],
       feed: [],
@@ -152,8 +165,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // (like `feed`) existed. Without this, a stale save silently breaks
     // whatever new feature was added since it was created.
     const safeState: GameState = {
-      promotion: saved.promotion,
+      promotion: { ...saved.promotion, abbreviation: saved.promotion?.abbreviation ?? "" },
       roster: saved.roster ?? [],
+      freeAgents: saved.freeAgents ?? [],
       teams: saved.teams ?? [],
       cards: saved.cards ?? [],
       feed: saved.feed ?? [],
@@ -261,7 +275,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ---- week progression ----
   advanceWeek: () => {
-    const { cards, roster, promotion, feed, titleHistory, pendingControversy } = get();
+    const { cards, roster, freeAgents, promotion, feed, titleHistory, pendingControversy } = get();
+
+    // Free agents age/develop on the same yearly cadence as the roster —
+    // a scouted green prospect you passed on doesn't stay frozen in time.
+    const shouldAgeFreeAgents = promotion.currentWeek > 0 && promotion.currentWeek % 52 === 0;
+    const developedFreeAgents = shouldAgeFreeAgents
+      ? freeAgents.map((f) => developFighter({ ...f, age: f.age + 1 }))
+      : freeAgents;
 
     const dueCard = cards.find(
       (c) => c.week === promotion.currentWeek && !c.isSimulated
@@ -551,6 +572,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       set({
         roster: finalRoster,
+        freeAgents: developedFreeAgents,
         cards: updatedCards,
         promotion: updatedPromotion,
         feed: [
@@ -594,6 +616,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       set({
         roster: finalTickedRoster,
+        freeAgents: developedFreeAgents,
         promotion: { ...promotion, currentWeek: promotion.currentWeek + 1 },
         feed: [...retirementResult.feedItems, ...ambientItems, ...feed],
         titleHistory: retirementResult.titleHistory,
@@ -787,6 +810,49 @@ export const useGameStore = create<GameStore>((set, get) => ({
     persistCurrentState(get());
   },
 
+  signFreeAgent: (fighterId) => {
+    const { roster, freeAgents, feed, promotion } = get();
+    const candidate = freeAgents.find((f) => f.id === fighterId);
+    if (!candidate) return;
+
+    const signedCandidate: Fighter = {
+      ...candidate,
+      contractFightsRemaining: candidate.contractFightsRemaining ?? 4,
+    };
+
+    const newFeedItem = {
+      id: crypto.randomUUID(),
+      type: "news" as const,
+      week: promotion.currentWeek,
+      authorName: "MMA Wire",
+      content: `${signedCandidate.name} has signed with the promotion — ${signedCandidate.weightClass} division.`,
+      relatedFighterIds: [signedCandidate.id],
+    };
+
+    const promotionHandle = getPromotionHandle(promotion.name);
+    const hypePost = {
+      id: crypto.randomUUID(),
+      type: "promotion" as const,
+      week: promotion.currentWeek,
+      authorName: promotion.name,
+      authorHandle: "@" + promotionHandle,
+      content: newSigningPost(signedCandidate.name, signedCandidate.weightClass),
+      relatedFighterIds: [signedCandidate.id],
+    };
+
+    // Backfill the pool so there's always something to browse — signing
+    // one free agent doesn't drain the market to nothing.
+    const replacement = generateFreeAgentPool(1)[0];
+
+    set({
+      roster: [...roster, signedCandidate],
+      freeAgents: [...freeAgents.filter((f) => f.id !== fighterId), replacement],
+      feed: [hypePost, newFeedItem, ...feed],
+    });
+
+    persistCurrentState(get());
+  },
+
   signSponsor: (fighterId, sponsorId) => {
     const { roster, feed, promotion } = get();
     const fighter = roster.find((f) => f.id === fighterId);
@@ -876,6 +942,7 @@ function persistCurrentState(state: GameStore) {
   saveGame({
     promotion: state.promotion,
     roster: state.roster,
+    freeAgents: state.freeAgents,
     teams: state.teams,
     cards: state.cards,
     feed: state.feed,
