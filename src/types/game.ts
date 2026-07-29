@@ -168,6 +168,7 @@ export interface FeedItem {
   authorName: string; // fighter name, or outlet name like "MMA Wire"
   authorHandle?: string; // for tweets, e.g. "@ivanlarsen"
   content: string;
+  detail?: string; // longer-form detail shown when the item is expanded (e.g. full fight breakdown)
   relatedFighterIds: string[]; // for filtering/context
   sentiment?: "good" | "neutral" | "bad"; // used by pundit/fan takes
 }

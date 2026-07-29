@@ -16,6 +16,13 @@ function handleFromName(name: string): string {
   return "@" + name.toLowerCase().replace(/[^a-z]/g, "");
 }
 
+/** Short "method, round N" tag used to give every headline real fight detail. */
+function methodTag(outcome: FightOutcome): string {
+  return outcome.method === "Decision"
+    ? "decision"
+    : `${outcome.method}, round ${outcome.round}`;
+}
+
 // ============================================
 // CONTEXT CLASSIFICATION
 // ============================================
@@ -165,34 +172,34 @@ const NEWS_OUTLETS = ["MMA Wire", "Cage Report", "Fight Central", "The Scrap She
 
 const NEWS_HEADLINE_TEMPLATES: Record<FightNarrative, ((w: Fighter, l: Fighter, outcome: FightOutcome) => string)[]> = {
   upset: [
-    (w, l) => `UPSET: ${w.name} shocks the division with a win over ${l.name}`,
-    (w, l) => `${w.name} stuns everyone, defeats heavily favored ${l.name}`,
-    (w, l) => `Nobody saw it coming: ${w.name} takes down ${l.name}`,
-    (w, l) => `${l.name} caught off guard as ${w.name} pulls the upset`,
+    (w, l, o) => `UPSET: ${w.name} shocks the division with a ${methodTag(o)} win over ${l.name}`,
+    (w, l, o) => `${w.name} stuns everyone, defeats heavily favored ${l.name} (${methodTag(o)})`,
+    (w, l, o) => `Nobody saw it coming: ${w.name} takes down ${l.name} via ${methodTag(o)}`,
+    (w, l, o) => `${l.name} caught off guard as ${w.name} pulls the upset, ${methodTag(o)}`,
   ],
   brutal_finish: [
     (w, l, o) => `${w.name} ends it early, finishes ${l.name} via ${o.method} in round ${o.round}`,
-    (w, l) => `Brutal night for ${l.name} as ${w.name} secures a violent finish`,
+    (w, l, o) => `Brutal night for ${l.name} as ${w.name} secures a violent finish (${methodTag(o)})`,
     (w, l, o) => `${w.name} sends a message with a round ${o.round} finish over ${l.name}`,
-    (w, l) => `Vicious performance from ${w.name} puts ${l.name} away in a hurry`,
+    (w, l, o) => `Vicious performance from ${w.name} puts ${l.name} away in a hurry, ${methodTag(o)}`,
   ],
   close_decision: [
-    (w, l) => `${w.name} edges out ${l.name} in a fight that could've gone either way`,
-    (w, l) => `Split opinions as ${w.name} takes a close decision over ${l.name}`,
+    (w, l, o) => `${w.name} edges out ${l.name} in a fight that could've gone either way (${methodTag(o)})`,
+    (w, l, o) => `Split opinions as ${w.name} takes a close ${o.round}-round decision over ${l.name}`,
     (w, l) => `Instant classic: ${w.name} and ${l.name} go the distance in a nail-biter`,
-    (w, l) => `Judges give it to ${w.name} after a razor-close bout with ${l.name}`,
+    (w, l, o) => `Judges give it to ${w.name} after a razor-close bout with ${l.name}, ${methodTag(o)}`,
   ],
   dominant_win: [
-    (w, l) => `${w.name} handles business, defeats ${l.name} as expected`,
-    (w, l) => `Another win for ${w.name}, cruises past ${l.name}`,
-    (w, l) => `${w.name} keeps rolling with a solid win over ${l.name}`,
-    (w, l) => `As expected, ${w.name} gets past ${l.name} without much trouble`,
+    (w, l, o) => `${w.name} handles business, defeats ${l.name} as expected (${methodTag(o)})`,
+    (w, l, o) => `Another win for ${w.name}, cruises past ${l.name} via ${methodTag(o)}`,
+    (w, l, o) => `${w.name} keeps rolling with a solid win over ${l.name}, ${methodTag(o)}`,
+    (w, l, o) => `As expected, ${w.name} gets past ${l.name} without much trouble (${methodTag(o)})`,
   ],
   squash: [
-    (w, l) => `Questions raised over matchmaking as ${w.name} steamrolls overmatched ${l.name}`,
-    (w, l) => `${w.name} makes quick work of an outclassed ${l.name}`,
-    (w, l) => `Mismatch on paper proves true as ${w.name} dismantles ${l.name}`,
-    (w, l) => `Fans call for better competition after ${w.name} blows past ${l.name}`,
+    (w, l, o) => `Questions raised over matchmaking as ${w.name} steamrolls overmatched ${l.name} (${methodTag(o)})`,
+    (w, l, o) => `${w.name} makes quick work of an outclassed ${l.name}, ${methodTag(o)}`,
+    (w, l, o) => `Mismatch on paper proves true as ${w.name} dismantles ${l.name} via ${methodTag(o)}`,
+    (w, l, o) => `Fans call for better competition after ${w.name} blows past ${l.name} in round ${o.round}`,
   ],
 };
 
@@ -360,7 +367,8 @@ export function generateFeedForCard(
       });
     }
 
-    // News headline
+    // News headline — a short attention-grabbing line, with the real
+    // round-by-round breakdown available as `detail` for anyone who taps in.
     const headlineFn = pick(NEWS_HEADLINE_TEMPLATES[narrative]);
     items.push({
       id: crypto.randomUUID(),
@@ -368,6 +376,7 @@ export function generateFeedForCard(
       week,
       authorName: pick(NEWS_OUTLETS),
       content: headlineFn(winner, loser, outcome),
+      detail: outcome.summary,
       relatedFighterIds: [winner.id, loser.id],
     });
 

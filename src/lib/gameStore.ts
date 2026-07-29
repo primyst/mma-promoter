@@ -225,24 +225,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
       eventName,
     };
 
-    // Fight week events (weigh-in + press conference) run for the headline
-    // fight now, at booking time — this is the lead-up, before fight night.
+    // Booking only announces the card now — weigh-ins, press conferences,
+    // and any incidents happen later, the actual week of the fight (see
+    // advanceWeek), so a card booked months out doesn't spoil its own
+    // buildup early.
     const rosterMap = new Map(roster.map((f) => [f.id, f]));
     const headliner = draftCard.find((f) => f.isMainEvent || f.isTitleFight);
 
-    let newFeedItems: typeof feed = [];
-    let newIncident: Incident | null = get().pendingIncident;
+    const newFeedItems: typeof feed = [];
 
     if (headliner) {
       const fighterA = rosterMap.get(headliner.fighterAId);
       const fighterB = rosterMap.get(headliner.fighterBId);
       if (fighterA && fighterB) {
-        const weekResult = runFightWeek(headliner, fighterA, fighterB, targetWeek);
-        newFeedItems = weekResult.feedItems;
-        if (weekResult.incident) {
-          newIncident = weekResult.incident; // only one open incident at a time for now
-        }
-
         const promotionHandle = getPromotionHandle(get().promotion.name);
         newFeedItems.push({
           id: crypto.randomUUID(),
@@ -264,7 +259,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       cards: [...cards, newCard],
       feed: [...newFeedItems, ...feed],
-      pendingIncident: newIncident,
       promotion: promotionWithEventCount,
       draftCard: [],
     });
@@ -275,7 +269,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ---- week progression ----
   advanceWeek: () => {
-    const { cards, roster, freeAgents, promotion, feed, titleHistory, pendingControversy } = get();
+    const { cards, roster, freeAgents, promotion, feed, titleHistory, pendingControversy, pendingIncident } = get();
 
     // Free agents age/develop on the same yearly cadence as the roster —
     // a scouted green prospect you passed on doesn't stay frozen in time.
@@ -292,6 +286,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (dueCard) {
       const cardIndex = cards.findIndex((c) => c.id === dueCard.id);
+
+      // Fight-week hype (press conference, weigh-ins, incidents) fires now,
+      // the actual week of the card — not back when it was booked, so a
+      // card scheduled months out doesn't spoil its own buildup early.
+      const preFightRosterMap = new Map(roster.map((f) => [f.id, f]));
+      const headlinerFight =
+        dueCard.fights.find((f) => f.isMainEvent || f.isTitleFight) ?? dueCard.fights[0];
+
+      let fightWeekFeedItems: typeof feed = [];
+      let fightWeekIncident: Incident | null = pendingIncident;
+
+      if (headlinerFight) {
+        const fighterA = preFightRosterMap.get(headlinerFight.fighterAId);
+        const fighterB = preFightRosterMap.get(headlinerFight.fighterBId);
+        if (fighterA && fighterB) {
+          const weekResult = runFightWeek(headlinerFight, fighterA, fighterB, promotion.currentWeek);
+          fightWeekFeedItems = weekResult.feedItems;
+          if (weekResult.incident) {
+            fightWeekIncident = weekResult.incident;
+          }
+        }
+      }
 
       const { outcomes, updatedRoster } = simulateCard(
         dueCard.fights,
@@ -576,6 +592,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         cards: updatedCards,
         promotion: updatedPromotion,
         feed: [
+          ...fightWeekFeedItems,
           ...promotionFeedItems,
           ...milestoneItems,
           ...retirementResult.feedItems,
@@ -586,6 +603,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ...feed,
         ],
         titleHistory: retirementResult.titleHistory,
+        pendingIncident: fightWeekIncident,
         pendingControversy: newControversy,
       });
 
@@ -700,15 +718,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     const promotionHandle = getPromotionHandle(promotion.name);
-    const newFeedItem = {
-      id: crypto.randomUUID(),
-      type: "promotion" as const,
-      week: promotion.currentWeek,
-      authorName: promotion.name,
-      authorHandle: "@" + promotionHandle,
-      content: officialStatementPost(effect.resultMessage),
-      relatedFighterIds: [pendingIncident.fighterAId, pendingIncident.fighterBId],
-    };
+    // A fine is quiet, administrative housekeeping — nobody tweets about
+    // paperwork. Letting it slide or hyping it up are actual PR moves the
+    // public would notice, so those still make the feed.
+    const newFeedItem =
+      choice === "fine"
+        ? null
+        : {
+            id: crypto.randomUUID(),
+            type: "promotion" as const,
+            week: promotion.currentWeek,
+            authorName: promotion.name,
+            authorHandle: "@" + promotionHandle,
+            content: officialStatementPost(effect.resultMessage),
+            relatedFighterIds: [pendingIncident.fighterAId, pendingIncident.fighterBId],
+          };
 
     set({
       roster: updatedRoster,
@@ -716,7 +740,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ...promotion,
         reputation: Math.max(0, Math.min(100, promotion.reputation + effect.reputationDelta)),
       },
-      feed: [newFeedItem, ...feed],
+      feed: newFeedItem ? [newFeedItem, ...feed] : feed,
       pendingIncident: null,
     });
 
