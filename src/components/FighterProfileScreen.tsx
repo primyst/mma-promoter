@@ -6,6 +6,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { getAdjacentDivisions } from "@/lib/weightClassMove";
 import { computeExpectedPurse } from "@/lib/contracts";
 import { getFightingStyle } from "@/lib/fightingStyle";
+import { generateBio } from "@/lib/bio";
 import { getFameTier } from "@/lib/fame";
 import { getEligibleSponsors, SPONSOR_LIST } from "@/lib/sponsors";
 import { getMoraleDisplay } from "@/lib/momentumDisplay";
@@ -127,6 +128,11 @@ export default function FighterProfileScreen({
             {fighter.isChampion && (
               <Crown className="w-4 h-4 text-yellow-500" />
             )}
+            {fighter.isInterimChampion && (
+              <span className="flex items-center gap-1 text-xs text-neutral-400">
+                <Crown className="w-4 h-4 text-neutral-400" /> Interim
+              </span>
+            )}
           </h1>
           {fighter.nickname && (
             <p className="text-xs text-neutral-500">"{fighter.nickname}"</p>
@@ -156,6 +162,23 @@ export default function FighterProfileScreen({
         </div>
       </div>
 
+      {/* Bio + personality */}
+      <div className="px-4 mb-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] uppercase tracking-wide text-neutral-500">
+              About
+            </span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300">
+              {fighter.personality}
+            </span>
+          </div>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            {generateBio(fighter)}
+          </p>
+        </div>
+      </div>
+
       {/* Contract status */}
       <div className="px-4 mb-4">
         {fighter.contractFightsRemaining !== null ? (
@@ -172,7 +195,7 @@ export default function FighterProfileScreen({
           <div className="bg-red-950/30 border border-red-900 rounded-lg p-3 space-y-3">
             <p className="text-xs text-red-400 font-medium">
               Free agent — not signed. Expected ask: $
-              {computeExpectedPurse(fighter).toLocaleString()}/fight
+              {computeExpectedPurse(fighter, promotion.reputation).toLocaleString()}/fight
             </p>
 
             <div className="flex gap-2 items-center">

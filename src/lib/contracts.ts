@@ -10,8 +10,19 @@ import { Fighter } from "@/types/game";
  * roster generator uses for starting purses, so re-signs feel consistent
  * with what a fighter was worth when first generated.
  */
-export function computeExpectedPurse(fighter: Fighter): number {
-  return 2000 + fighter.fanHeat * 300 + (fighter.isChampion ? 15000 : 0);
+/**
+ * A promotion's reputation acts like brand prestige — a well-regarded
+ * org can sign fighters for a bit less (fighters want to be part of
+ * something respected), a poorly-regarded one has to overpay to
+ * convince anyone to sign. 50 reputation is neutral (1.0x).
+ */
+function reputationMultiplier(promotionReputation: number): number {
+  return 1 - (promotionReputation - 50) / 200; // 100 rep -> 0.75x, 0 rep -> 1.25x
+}
+
+export function computeExpectedPurse(fighter: Fighter, promotionReputation: number = 50): number {
+  const base = 2000 + fighter.fanHeat * 300 + (fighter.isChampion ? 15000 : 0);
+  return Math.round(base * reputationMultiplier(promotionReputation));
 }
 
 // ============================================
@@ -28,27 +39,37 @@ export interface ContractOfferResult {
 
 /**
  * Evaluates a contract offer against what the fighter actually expects.
- * - Offer at or above 90% of expectation: accepted outright.
- * - Offer between 60-90%: fighter counters with something in between.
- * - Offer below 60%: flat rejection, they're insulted.
+ * Personality shifts where the accept/counter/reject lines fall:
+ *   - Mercenary: hardest negotiator, wants closer to full value, counters high
+ *   - Prideful: quick to feel disrespected by a lowball, rejects sooner
+ *   - Loyal: reasonable, will meet you close to the middle
+ *   - Humble: easiest signature, happy well below their own market value
  */
 export function evaluateContractOffer(
   fighter: Fighter,
   fightsOffered: number,
-  purseOffered: number
+  purseOffered: number,
+  promotionReputation: number = 50
 ): ContractOfferResult {
-  const expected = computeExpectedPurse(fighter);
+  const expected = computeExpectedPurse(fighter, promotionReputation);
   const ratio = purseOffered / expected;
 
-  if (ratio >= 0.9) {
+  const thresholds = {
+    Mercenary: { accept: 0.97, reject: 0.65, counterAt: 0.95 },
+    Prideful: { accept: 0.9, reject: 0.7, counterAt: 0.88 },
+    Loyal: { accept: 0.85, reject: 0.55, counterAt: 0.8 },
+    Humble: { accept: 0.75, reject: 0.45, counterAt: 0.7 },
+  }[fighter.personality];
+
+  if (ratio >= thresholds.accept) {
     return {
       outcome: "accepted",
       message: `${fighter.name} signed a ${fightsOffered}-fight deal at $${purseOffered.toLocaleString()} per fight.`,
     };
   }
 
-  if (ratio >= 0.6) {
-    const counterPurse = Math.round(expected * 0.85);
+  if (ratio >= thresholds.reject) {
+    const counterPurse = Math.round(expected * thresholds.counterAt);
     return {
       outcome: "countered",
       counterPurse,
@@ -58,7 +79,10 @@ export function evaluateContractOffer(
 
   return {
     outcome: "rejected",
-    message: `${fighter.name}'s camp turned down the offer, calling it disrespectful.`,
+    message:
+      fighter.personality === "Prideful"
+        ? `${fighter.name} is insulted by the offer and won't hear another number this week.`
+        : `${fighter.name}'s camp turned down the offer, calling it disrespectful.`,
   };
 }
 

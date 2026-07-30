@@ -15,7 +15,9 @@ import {
   MessageCircle,
   Newspaper,
   Megaphone,
+  Award,
 } from "lucide-react";
+import { BONUS_AMOUNTS } from "@/lib/fightBonuses";
 
 // ============================================
 // METHOD ICON HELPER
@@ -175,6 +177,36 @@ export default function ResultsScreen() {
         <DollarSign className="w-8 h-8 text-green-500/40" />
       </div>
 
+      {/* Fight Night Bonuses */}
+      {(result.card.bonuses?.fotn || result.card.bonuses?.potn) && (
+        <div className="mx-4 mt-3 bg-neutral-900 border border-yellow-700/40 rounded-lg p-4 space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-yellow-500 flex items-center gap-1.5">
+            <Award className="w-3.5 h-3.5" /> Fight Night Bonuses
+          </p>
+          {result.card.bonuses?.fotn && (
+            <p className="text-xs text-neutral-300">
+              Fight of the Night —{" "}
+              {result.card.bonuses.fotn.fighterIds
+                .map((id) => rosterMap.get(id)?.name)
+                .filter(Boolean)
+                .join(" vs. ")}{" "}
+              <span className="text-green-500">
+                +${BONUS_AMOUNTS.fotn.toLocaleString()} each
+              </span>
+            </p>
+          )}
+          {result.card.bonuses?.potn && (
+            <p className="text-xs text-neutral-300">
+              Performance of the Night —{" "}
+              {rosterMap.get(result.card.bonuses.potn.fighterId)?.name}{" "}
+              <span className="text-green-500">
+                +${BONUS_AMOUNTS.potn.toLocaleString()}
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Fight results */}
       <div className="px-4 py-4 space-y-3">
         {result.outcomes.map((outcome) => {
@@ -188,6 +220,8 @@ export default function ResultsScreen() {
               : rosterMap.get(fight.fighterAId);
 
           const isMainEvent = fight.isMainEvent;
+          const isFotn = result.card.bonuses?.fotn?.fightId === fight.id;
+          const isPotn = result.card.bonuses?.potn?.fightId === fight.id;
 
           return (
             <div
@@ -198,13 +232,23 @@ export default function ResultsScreen() {
                   : "border-neutral-800 bg-neutral-900"
               }`}
             >
-              <div className="flex items-center gap-1.5 mb-2">
+              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                 {fight.isTitleFight && (
                   <Crown className="w-3.5 h-3.5 text-yellow-500" />
                 )}
                 {isMainEvent && (
                   <span className="text-[10px] uppercase tracking-wide text-yellow-500 font-medium">
                     Main Event
+                  </span>
+                )}
+                {isFotn && (
+                  <span className="text-[9px] uppercase tracking-wide text-yellow-400 border border-yellow-700/50 rounded px-1 flex items-center gap-1">
+                    <Award className="w-2.5 h-2.5" /> Fight of the Night
+                  </span>
+                )}
+                {isPotn && (
+                  <span className="text-[9px] uppercase tracking-wide text-yellow-400 border border-yellow-700/50 rounded px-1 flex items-center gap-1">
+                    <Award className="w-2.5 h-2.5" /> Performance of the Night
                   </span>
                 )}
               </div>

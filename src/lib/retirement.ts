@@ -1,5 +1,6 @@
 import { Fighter, TitleReign, FeedItem } from "@/types/game";
 import { vacateTitle } from "./weightClassMove";
+import { developFighter } from "./developmentSystem";
 
 // ============================================
 // RETIREMENT RISK
@@ -71,7 +72,7 @@ export function processWeeklyAgingAndRetirement(
   const shouldAge = currentWeek > 0 && currentWeek % 52 === 0;
 
   const aged = shouldAge
-    ? roster.map((f) => (f.isRetired ? f : { ...f, age: f.age + 1 }))
+    ? roster.map((f) => (f.isRetired ? f : developFighter({ ...f, age: f.age + 1 })))
     : roster;
 
   const feedItems: FeedItem[] = [];

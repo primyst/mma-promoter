@@ -107,6 +107,13 @@ export function validateMatchup(
     blockers.push("Fighters must be in the same weight class");
   }
 
+  // Camp rule — real MMA gyms don't let their own fighters coach each
+  // other in fight week and then throw hands on fight night. Teammates
+  // are simply not bookable against each other.
+  if (fighterA.teamId && fighterB.teamId && fighterA.teamId === fighterB.teamId) {
+    blockers.push("Teammates from the same camp can't be booked against each other");
+  }
+
   const eligA = checkEligibility(fighterA, scheduledFighterIds);
   const eligB = checkEligibility(fighterB, scheduledFighterIds);
   if (!eligA.eligible) blockers.push(`${fighterA.name}: ${eligA.reason}`);
@@ -129,6 +136,14 @@ export function validateMatchup(
       warnings.push(
         "Large ranking gap — fans may see this as a mismatch, lower fan heat gain"
       );
+      // A Prideful fighter being fed a much lower-ranked opponent (or
+      // asked to face someone well above their own level) takes it as an
+      // insult either way — they want to be tested against real competition.
+      for (const f of [fighterA, fighterB]) {
+        if (f.personality === "Prideful") {
+          warnings.push(`${f.name} may see this booking as beneath them or unfair`);
+        }
+      }
     }
   }
 
@@ -147,8 +162,101 @@ export function validateMatchup(
 }
 
 // ============================================
-// CARD-LEVEL VALIDATION
+// MATCHUP SUGGESTIONS
 // ============================================
+
+export interface SuggestedOpponent {
+  fighter: Fighter;
+  reason: string;
+}
+
+/**
+ * Instead of dumping the whole division on the user, surface a short list
+ * of matchups that actually make sense for this fighter: similar ranking
+ * (a real title-eliminator type bout), or — for a champion — the very top
+ * contenders who are actually next in line.
+ */
+export function getSuggestedOpponents(
+  fighter: Fighter,
+  candidates: Fighter[],
+  limit: number = 5
+): SuggestedOpponent[] {
+  const sameDivision = candidates.filter(
+    (c) => c.weightClass === fighter.weightClass && c.id !== fighter.id
+  );
+
+  if (fighter.isChampion) {
+    // Top-ranked contenders are the realistic next title challengers.
+    return sameDivision
+      .filter((c) => c.ranking != null)
+      .sort((a, b) => (a.ranking ?? 999) - (b.ranking ?? 999))
+      .slice(0, limit)
+      .map((c) => ({
+        fighter: c,
+        reason: `#${(c.ranking ?? 0) + 1} contender`,
+      }));
+  }
+
+  const myRank = fighter.ranking; // null = unranked
+
+  return sameDivision
+    .map((c) => {
+      // Unranked fighters are treated as "far away" for sorting purposes,
+      // so ranked opponents near the fighter's own spot bubble up first.
+      const gap =
+        myRank != null && c.ranking != null
+          ? Math.abs(c.ranking - myRank)
+          : 999;
+      return { fighter: c, gap };
+    })
+    .sort((a, b) => a.gap - b.gap)
+    .slice(0, limit)
+    .map(({ fighter: c, gap }) => ({
+      fighter: c,
+      reason:
+        c.isChampion
+          ? "Champion"
+          : c.ranking != null && myRank != null
+          ? gap <= 1
+            ? "Right next to you in the rankings"
+            : `#${c.ranking + 1} · ${gap} spot${gap !== 1 ? "s" : ""} away`
+          : c.ranking != null
+          ? `#${c.ranking + 1} contender`
+          : "Unranked",
+    }));
+}
+
+/**
+ * How a card's matchmaking quality nudges promotion reputation — booking
+ * genuinely competitive fights (close in ranking, title fights) builds
+ * credibility; stacking mismatches spends it. This is what gives
+ * reputation an ordinary, ongoing input instead of only moving on rare
+ * incidents/controversies.
+ */
+export function computeCardReputationDelta(
+  fights: BookedFight[],
+  rosterMap: Map<string, Fighter>
+): number {
+  let delta = 0;
+
+  for (const fight of fights) {
+    const a = rosterMap.get(fight.fighterAId);
+    const b = rosterMap.get(fight.fighterBId);
+    if (!a || !b) continue;
+
+    if (fight.isTitleFight) {
+      delta += 2; // a title fight happening at all is good for credibility
+    }
+
+    if (a.ranking != null && b.ranking != null) {
+      const gap = Math.abs(a.ranking - b.ranking);
+      if (gap <= 2) delta += 1; // genuinely competitive matchup
+      else if (gap >= 8) delta -= 1; // clear mismatch
+    }
+  }
+
+  return Math.max(-4, Math.min(4, delta));
+}
 
 /**
  * Checks a full proposed card: no fighter double-booked, at least one fight,

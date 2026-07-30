@@ -17,27 +17,30 @@ export interface LeaderboardEntry {
 
 export function getMostWins(roster: Fighter[], limit: number = 10): LeaderboardEntry[] {
   return [...roster]
-    .filter((f) => f.wins > 0)
-    .sort((a, b) => b.wins - a.wins)
+    .filter((f) => f.promotionWins > 0)
+    .sort((a, b) => b.promotionWins - a.promotionWins)
     .slice(0, limit)
     .map((f) => ({
       fighterId: f.id,
       fighterName: f.name,
-      value: f.wins,
-      label: `${f.wins} win${f.wins !== 1 ? "s" : ""}`,
+      value: f.promotionWins,
+      label: `${f.promotionWins} win${f.promotionWins !== 1 ? "s" : ""}`,
     }));
 }
 
 export function getBestRecord(roster: Fighter[], limit: number = 10): LeaderboardEntry[] {
   return [...roster]
-    .filter((f) => f.wins + f.losses > 0)
-    .sort((a, b) => b.wins - b.losses - (a.wins - a.losses))
+    .filter((f) => f.promotionWins + f.promotionLosses > 0)
+    .sort(
+      (a, b) =>
+        b.promotionWins - b.promotionLosses - (a.promotionWins - a.promotionLosses)
+    )
     .slice(0, limit)
     .map((f) => ({
       fighterId: f.id,
       fighterName: f.name,
-      value: f.wins - f.losses,
-      label: `${f.wins}-${f.losses}-${f.draws}`,
+      value: f.promotionWins - f.promotionLosses,
+      label: `${f.promotionWins}-${f.promotionLosses}-${f.promotionDraws}`,
     }));
 }
 
@@ -167,7 +170,11 @@ export function getPoundForPound(
   }
 
   return roster
-    .filter((f) => !f.isRetired && f.wins + f.losses > 0)
+    .filter(
+      (f) =>
+        !f.isRetired &&
+        f.promotionWins + f.promotionLosses > 0 // must have actually fought for the promotion — no debuting at #1 off hype alone
+    )
     .map((fighter) => {
       const finishes = fighter.recentFights.filter(
         (fight) => fight.result === "win" && fight.method !== "Decision"

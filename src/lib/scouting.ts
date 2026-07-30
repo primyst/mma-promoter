@@ -55,7 +55,7 @@ export function scoutForTalent(
   const candidates = Array.from({ length: 3 }, (_, i) =>
     generateFighter({
       weightClass,
-      tier: i === breakoutIndex ? "breakout" : "prospect",
+      tier: i === breakoutIndex ? "breakout" : "green",
     })
   );
 

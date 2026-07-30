@@ -25,10 +25,14 @@ function sentimentColor(sentiment?: "good" | "neutral" | "bad"): string {
 }
 
 function FeedCard({ item }: { item: FeedItem }) {
+  const [expanded, setExpanded] = useState(false);
   const isOfficial = item.type === "promotion";
+  const hasDetail = Boolean(item.detail);
+
   return (
-    <div
-      className={`bg-neutral-900 border rounded-lg p-4 ${
+    <button
+      onClick={() => hasDetail && setExpanded((e) => !e)}
+      className={`w-full text-left bg-neutral-900 border rounded-lg p-4 ${
         isOfficial ? "border-yellow-700/50 bg-yellow-950/10" : "border-neutral-800"
       } ${sentimentColor(item.sentiment)}`}
     >
@@ -48,7 +52,16 @@ function FeedCard({ item }: { item: FeedItem }) {
         </span>
       </div>
       <p className="text-sm text-neutral-200 leading-relaxed">{item.content}</p>
-    </div>
+      {hasDetail && (
+        expanded ? (
+          <p className="text-xs text-neutral-400 leading-relaxed mt-2 pt-2 border-t border-neutral-800">
+            {item.detail}
+          </p>
+        ) : (
+          <p className="text-[10px] text-neutral-600 mt-1.5">Tap for full breakdown</p>
+        )
+      )}
+    </button>
   );
 }
 

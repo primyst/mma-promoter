@@ -35,13 +35,27 @@ export function recalculateRankings(roster: Fighter[]): Fighter[] {
 
   for (const [, fighters] of byDivision) {
     const champion = fighters.find((f) => f.isChampion);
+
+    // A fighter who hasn't actually competed under this promotion yet
+    // stays unranked no matter how hyped their (pregenerated) backstory
+    // record or Elo looks — real orgs don't hand out a top-5 ranking to
+    // someone who just signed and hasn't fought for them once.
+    const hasPromotionFights = (f: Fighter) =>
+      f.promotionWins + f.promotionLosses + f.promotionDraws > 0;
+
     const contenders = fighters
-      .filter((f) => !f.isChampion)
+      .filter((f) => !f.isChampion && hasPromotionFights(f))
       .sort((a, b) => b.eloRating - a.eloRating);
 
     contenders.forEach((fighter, index) => {
       rankingById.set(fighter.id, index); // #1 contender = index 0
     });
+
+    for (const fighter of fighters) {
+      if (!fighter.isChampion && !hasPromotionFights(fighter)) {
+        rankingById.set(fighter.id, null); // unranked debut
+      }
+    }
 
     if (champion) {
       rankingById.set(champion.id, null); // champions carry no number

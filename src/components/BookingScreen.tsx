@@ -3,7 +3,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/gameStore";
-import { getBookableFighters, validateMatchup } from "@/lib/booking";
+import {
+  getBookableFighters,
+  validateMatchup,
+  checkEligibility,
+  getScheduledFighterIds,
+  getSuggestedOpponents,
+} from "@/lib/booking";
 import { getMoraleDisplay } from "@/lib/momentumDisplay";
 import { Fighter, BookedFight, WeightClass, WEIGHT_CLASS_ORDER } from "@/types/game";
 import {
@@ -37,22 +43,28 @@ function FighterRow({
   fighter,
   selected,
   onSelect,
+  disabledReason,
 }: {
   fighter: Fighter;
   selected: boolean;
   onSelect: () => void;
+  disabledReason?: string;
 }) {
+  const isDisabled = Boolean(disabledReason);
   return (
     <button
-      onClick={onSelect}
+      onClick={isDisabled ? undefined : onSelect}
+      disabled={isDisabled}
       className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
-        selected
+        isDisabled
+          ? "border-neutral-900 bg-neutral-950 opacity-50 cursor-not-allowed"
+          : selected
           ? "border-red-500 bg-red-500/10"
           : "border-neutral-800 bg-neutral-900 active:bg-neutral-800"
       }`}
     >
       <div className="flex items-center gap-3 min-w-0">
-        <MoraleBadge momentum={fighter.momentum} />
+        {!isDisabled && <MoraleBadge momentum={fighter.momentum} />}
         <div className="text-left min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-medium text-sm truncate">{fighter.name}</span>
@@ -64,14 +76,20 @@ function FighterRow({
             {fighter.weightClass} · {fighter.wins}-{fighter.losses}-{fighter.draws}
             {fighter.ranking != null ? ` · #${fighter.ranking + 1}` : ""}
           </div>
-          <div className="text-[10px] text-neutral-600 mt-0.5">
-            STR {fighter.striking} · GRP {fighter.grappling} · CHIN {fighter.chin}
-          </div>
+          {isDisabled ? (
+            <div className="text-[10px] text-red-500/80 mt-0.5">{disabledReason}</div>
+          ) : (
+            <div className="text-[10px] text-neutral-600 mt-0.5">
+              STR {fighter.striking} · GRP {fighter.grappling} · CHIN {fighter.chin}
+            </div>
+          )}
         </div>
       </div>
-      <div className="text-xs text-neutral-500 shrink-0 ml-2">
-        {fighter.fanHeat}🔥
-      </div>
+      {!isDisabled && (
+        <div className="text-xs text-neutral-500 shrink-0 ml-2">
+          {fighter.fanHeat}🔥
+        </div>
+      )}
     </button>
   );
 }
@@ -113,9 +131,36 @@ export default function BookingScreen() {
     return ids;
   }, [draftCard]);
 
+  const scheduledFighterIds = useMemo(() => getScheduledFighterIds(cards), [cards]);
+
+  // Everyone in the picker, including temporarily unavailable fighters —
+  // they show up grayed out with a clear reason instead of just vanishing,
+  // which was confusing ("where did my fighter go?"). Retired fighters
+  // are the one exception since they're gone for good, not "for now".
+  const pickerPool = roster.filter(
+    (f) => !f.isRetired && f.id !== slotA?.id && f.id !== slotB?.id
+  );
+
+  function eligibilityReason(fighter: Fighter): string | undefined {
+    if (alreadyBookedIds.has(fighter.id)) return "Already on this draft card";
+    const check = checkEligibility(fighter, scheduledFighterIds);
+    return check.eligible ? undefined : check.reason;
+  }
+
   const availableForPicker = bookable.filter(
     (f) => !alreadyBookedIds.has(f.id) && f.id !== slotA?.id && f.id !== slotB?.id
   );
+
+  // Suggested matchups — only meaningful once Fighter A is picked and we're
+  // choosing Fighter B, so we have someone to suggest opponents FOR.
+  const suggestedForB = useMemo(() => {
+    if (pickingFor !== "B" || !slotA) return [];
+    const eligibleCandidates = availableForPicker.filter(
+      (f) => eligibilityReason(f) === undefined
+    );
+    return getSuggestedOpponents(slotA, eligibleCandidates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickingFor, slotA, availableForPicker]);
 
   const divisionHasChampion = useMemo(() => {
     if (!slotA) return true;
@@ -259,14 +304,36 @@ export default function BookingScreen() {
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-            {availableForPicker.filter(
+            {suggestedForB.length > 0 && pickerDivision === (slotA?.weightClass ?? "all") && (
+              <div className="mb-3">
+                <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-2">
+                  Suggested Matchups
+                </p>
+                <div className="space-y-2">
+                  {suggestedForB.map(({ fighter, reason }) => (
+                    <div key={fighter.id}>
+                      <FighterRow
+                        fighter={fighter}
+                        selected={false}
+                        onSelect={() => handlePick(fighter)}
+                      />
+                      <p className="text-[10px] text-neutral-600 mt-0.5 ml-1">{reason}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] uppercase tracking-wide text-neutral-500 mt-4 mb-2">
+                  Full Division
+                </p>
+              </div>
+            )}
+            {pickerPool.filter(
               (f) => pickerDivision === "all" || f.weightClass === pickerDivision
             ).length === 0 && (
               <p className="text-sm text-neutral-500 text-center mt-8">
-                No eligible fighters in this division.
+                No fighters in this division.
               </p>
             )}
-            {availableForPicker
+            {pickerPool
               .filter(
                 (f) => pickerDivision === "all" || f.weightClass === pickerDivision
               )
@@ -276,6 +343,7 @@ export default function BookingScreen() {
                   fighter={fighter}
                   selected={false}
                   onSelect={() => handlePick(fighter)}
+                  disabledReason={eligibilityReason(fighter)}
                 />
               ))}
           </div>

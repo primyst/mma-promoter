@@ -66,6 +66,18 @@ export function simulateFight(
 
   const summary = generateFightSummary(winner, loser, method, round);
 
+  // Career-threatening injuries — small chance on a brutal finish (KO/TKO
+  // or Doctor Stoppage), so always booking the best fighter and stacking
+  // brutal finishes carries real risk, not just a cooldown timer. First
+  // round finishes are the most violent and carry the highest chance.
+  let loserInjury: "severe" | "career_ending" | undefined;
+  if (method === "KO/TKO" || method === "Doctor Stoppage") {
+    const injuryChance = round === 1 ? 0.05 : 0.03;
+    if (Math.random() < injuryChance) {
+      loserInjury = Math.random() < 0.25 ? "career_ending" : "severe";
+    }
+  }
+
   return {
     fightId: "", // caller sets this to the actual BookedFight id
     winnerId: winner.id,
@@ -74,6 +86,7 @@ export function simulateFight(
     round,
     judgeScores,
     summary,
+    loserInjury,
   };
 }
 
@@ -151,11 +164,41 @@ function generateFightSummary(
   const options = FINISH_SUMMARIES[method];
   const template = options[Math.floor(Math.random() * options.length)];
 
+  const opener =
+    method === "Decision"
+      ? `${winner.name} ${template} against ${loser.name}.`
+      : `${winner.name} ${template} in round ${round} against ${loser.name}.`;
+
+  // Second sentence grounds it in the actual matchup instead of just being
+  // more flavor text — same idea whether you're reading this on the
+  // Results screen or expanding a Feed item, since both pull from here.
+  const strikingGap = winner.striking - loser.striking;
+  const grapplingGap = winner.grappling - loser.grappling;
+  const wasUpset = winner.eloRating < loser.eloRating - 50;
+
+  let context: string;
   if (method === "Decision") {
-    return `${winner.name} ${template} against ${loser.name}.`;
+    if (Math.abs(strikingGap) >= Math.abs(grapplingGap)) {
+      context =
+        strikingGap >= 0
+          ? `${winner.name}'s striking was the difference on the cards.`
+          : `${loser.name} actually had the better striking numbers, but ${winner.name} did enough elsewhere for the judges.`;
+    } else {
+      context =
+        grapplingGap >= 0
+          ? `Control on the mat is what won ${winner.name} the decision.`
+          : `${loser.name} had the wrestling edge, but couldn't turn it into enough offense to take the cards.`;
+    }
+  } else if (wasUpset) {
+    context = `A real statement finish against a fighter many had rated above them.`;
+  } else {
+    context =
+      strikingGap >= grapplingGap
+        ? `Clean striking is what got it done.`
+        : `Relentless grappling pressure is what got it done.`;
   }
 
-  return `${winner.name} ${template} in round ${round} against ${loser.name}.`;
+  return `${opener} ${context}`;
 }
 
 
@@ -257,17 +300,43 @@ export function applyFightResult(
   // lot; beating someone rated below you gains little. Losing to someone
   // rated well above you (the champ) costs very little — that's expected.
   // Losing to someone rated below you costs a lot, since that's the real
-  // upset. K=32 is the standard chess/Elo constant, works fine here too.
-  const K = 32;
+  // upset.
+  //
+  // K is NOT flat — it scales with how the fight actually ended. A decision
+  // win over someone you were expected to beat should barely move the
+  // needle (that's the "#2 beats #3, nobody reacts" case). A first-round
+  // finish is a statement and needs to actually shake the division up, the
+  // way a real dominant performance would. This mirrors how modern
+  // objective UFC-style rankings weigh "win type" as its own input, not
+  // just win/loss.
+  const K =
+    outcome.method === "KO/TKO"
+      ? 40
+      : outcome.method === "Submission"
+      ? 36
+      : 22; // Decision — smallest movement, closest to "as expected"
+
   const expectedWinner =
     1 / (1 + Math.pow(10, (loser.eloRating - winner.eloRating) / 400));
   const expectedLoser = 1 - expectedWinner;
-  const winnerEloChange = Math.round(K * (1 - expectedWinner));
+
+  // Ladder bonus — real rankings behave like a ladder as much as a rating:
+  // beat someone ranked clearly above you and you visibly climb, on top of
+  // whatever Elo alone would give you. Lower ranking number = better spot,
+  // so a positive gap here means the winner reached UP the ladder.
+  const rankGap =
+    winner.ranking != null && loser.ranking != null && loser.ranking < winner.ranking
+      ? winner.ranking - loser.ranking
+      : 0;
+  const ladderBonus = rankGap * 4;
+
+  const winnerEloChange = Math.round(K * (1 - expectedWinner) + ladderBonus);
   const loserEloChange = Math.round(K * (0 - expectedLoser));
 
   const updatedWinner: Fighter = {
     ...winner,
     wins: winner.wins + 1,
+    promotionWins: winner.promotionWins + 1,
     momentum: "hot",
     health: "fine", // wins rarely bring meaningful downtime
     weeksUntilAvailable: outcome.method === "Decision" ? 2 : 3,
@@ -286,9 +355,23 @@ export function applyFightResult(
   const updatedLoser: Fighter = {
     ...loser,
     losses: loser.losses + 1,
+    promotionLosses: loser.promotionLosses + 1,
     momentum: "cold",
-    health: outcome.method === "KO/TKO" ? "nursing" : "fine",
-    weeksUntilAvailable: cooldownForLoss(outcome.method),
+    health: outcome.loserInjury ? "injured" : outcome.method === "KO/TKO" ? "nursing" : "fine",
+    weeksUntilAvailable: outcome.loserInjury
+      ? randomInRange(14, 24) // real time out, not the usual few-week cooldown
+      : cooldownForLoss(outcome.method),
+    isRetired: outcome.loserInjury === "career_ending" ? true : loser.isRetired,
+    // A severe injury leaves permanent wear — chin and cardio never fully
+    // come back the same after something like this.
+    chin:
+      outcome.loserInjury === "severe"
+        ? Math.max(1, loser.chin - randomInRange(5, 10))
+        : loser.chin,
+    cardio:
+      outcome.loserInjury === "severe"
+        ? Math.max(1, loser.cardio - randomInRange(3, 7))
+        : loser.cardio,
     fanHeat: clamp(loser.fanHeat - 2, 0, 100), // losing rarely kills fan heat much, upsets can even boost it later
     eloRating: loser.eloRating + loserEloChange,
     recentFights: pushRecentFight(loser, {
@@ -339,6 +422,10 @@ function pushRecentFight(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function randomInRange(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 // ============================================

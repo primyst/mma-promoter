@@ -10,15 +10,20 @@ import {
   DollarSign,
   Calendar,
   History,
+  Wallet,
+  Landmark,
+  UserPlus,
 } from "lucide-react";
 
 export default function DashboardScreen() {
   const router = useRouter();
   const promotion = useGameStore((s) => s.promotion);
   const roster = useGameStore((s) => s.roster);
+  const freeAgents = useGameStore((s) => s.freeAgents);
   const cards = useGameStore((s) => s.cards);
   const feed = useGameStore((s) => s.feed);
   const advanceWeek = useGameStore((s) => s.advanceWeek);
+  const signFreeAgent = useGameStore((s) => s.signFreeAgent);
 
   const upcomingCards = cards.filter((c) => !c.isSimulated).length;
   const availableFighters = roster.filter(
@@ -98,7 +103,71 @@ export default function DashboardScreen() {
         >
           <History className="w-4 h-4" /> Results History
         </button>
+        <button
+          onClick={() => router.push("/rival")}
+          className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
+        >
+          <Swords className="w-4 h-4" /> Rival Promotion
+        </button>
+        <button
+          onClick={() => router.push("/finances")}
+          className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
+        >
+          <Wallet className="w-4 h-4" /> Finances
+        </button>
+        <button
+          onClick={() => router.push("/hall-of-fame")}
+          className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
+        >
+          <Landmark className="w-4 h-4" /> Hall of Fame
+        </button>
       </div>
+
+      {/* Free agents */}
+      {freeAgents.length > 0 && (
+        <div className="px-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xs uppercase tracking-wide text-neutral-500">
+              Free Agents
+            </h2>
+            <span className="text-[10px] text-neutral-600">
+              {freeAgents.length} unsigned
+            </span>
+          </div>
+          <div className="space-y-2 overflow-x-visible">
+            {freeAgents.slice(0, 5).map((fighter) => (
+              <div
+                key={fighter.id}
+                className="flex items-center justify-between bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {fighter.countryFlag} {fighter.name}
+                    {fighter.nickname && (
+                      <span className="text-neutral-500"> &ldquo;{fighter.nickname}&rdquo;</span>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-neutral-500 mt-0.5">
+                    {fighter.weightClass} · {fighter.wins}-{fighter.losses}
+                    {fighter.draws > 0 ? `-${fighter.draws}` : ""} · Age {fighter.age}
+                  </p>
+                </div>
+                <button
+                  onClick={() => signFreeAgent(fighter.id)}
+                  className="shrink-0 flex items-center gap-1 bg-neutral-800 hover:bg-neutral-700 rounded-md px-3 py-1.5 text-xs font-medium ml-3"
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> Sign
+                </button>
+              </div>
+            ))}
+          </div>
+          {freeAgents.length > 5 && (
+            <p className="text-[10px] text-neutral-600 mt-2">
+              +{freeAgents.length - 5} more available in Scouting
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Recent feed preview */}
       {recentFeed.length > 0 && (
