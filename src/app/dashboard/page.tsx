@@ -10,6 +10,8 @@ import {
   DollarSign,
   Calendar,
   History,
+  Wallet,
+  Landmark,
   UserPlus,
 } from "lucide-react";
 
@@ -100,6 +102,24 @@ export default function DashboardScreen() {
           className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
         >
           <History className="w-4 h-4" /> Results History
+        </button>
+        <button
+          onClick={() => router.push("/rival")}
+          className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
+        >
+          <Swords className="w-4 h-4" /> Rival Promotion
+        </button>
+        <button
+          onClick={() => router.push("/finances")}
+          className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
+        >
+          <Wallet className="w-4 h-4" /> Finances
+        </button>
+        <button
+          onClick={() => router.push("/hall-of-fame")}
+          className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 font-medium text-sm"
+        >
+          <Landmark className="w-4 h-4" /> Hall of Fame
         </button>
       </div>
 

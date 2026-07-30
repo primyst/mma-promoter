@@ -52,6 +52,8 @@ function RosterFighterRow({ fighter }: { fighter: Fighter }) {
           <span className="text-xs text-neutral-500 w-6 shrink-0">
             {fighter.isChampion ? (
               <Crown className="w-4 h-4 text-yellow-500" />
+            ) : fighter.isInterimChampion ? (
+              <Crown className="w-4 h-4 text-neutral-400" />
             ) : fighter.ranking != null ? (
               `#${fighter.ranking + 1}`
             ) : (

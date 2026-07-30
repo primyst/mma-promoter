@@ -56,7 +56,16 @@ export interface Fighter {
   wins: number;
   losses: number;
   draws: number;
-  recentFights: FightRecord[]; // last ~5, most recent first
+  recentFights: FightRecord[]; // last ~15, most recent first
+
+  // Fights actually contested under the PLAYER'S promotion — separate from
+  // the career wins/losses above, which can include pregenerated backstory
+  // record from before signing. Rankings and P4P must be built on these,
+  // never on the full career totals, or a hyped new signee can debut at
+  // #1 having never actually fought for the promotion — not realistic.
+  promotionWins: number;
+  promotionLosses: number;
+  promotionDraws: number;
 
   // Core stats (drive fight sim outcomes)
   striking: number; // 1-100
@@ -83,6 +92,7 @@ export interface Fighter {
   eloRating: number; // drives ranking order — beating someone above you matters far more than raw win count
 
   isChampion: boolean;
+  isInterimChampion: boolean; // holds the belt while the real champion is out long-term
   isRetired: boolean;
 
   // Hidden — never shown directly in roster/fighter UI. Governs how a
@@ -90,6 +100,10 @@ export interface Fighter {
   // their current stat block so a strong prospect isn't a guaranteed
   // future star (and a weak one isn't a guaranteed bust).
   potential: "elite" | "good" | "neutral" | "bad";
+
+  // Personality — affects contract negotiation behavior (see contracts.ts)
+  // and colors their bio. Shown on the fighter profile as a trait badge.
+  personality: "Loyal" | "Mercenary" | "Prideful" | "Humble";
 }
 
 // ============================================
@@ -139,6 +153,9 @@ export interface FightOutcome {
   round: number;
   judgeScores?: JudgeScorecard[]; // present for decisions
   summary?: string; // short flavor line describing how the fight went
+  // A real injury, on top of the usual cooldown — this is what gives
+  // brutal losses actual stakes instead of just a timer.
+  loserInjury?: "severe" | "career_ending";
 }
 
 // ============================================
@@ -190,12 +207,21 @@ export interface TitleReign {
 // TEAMS / CAMPS
 // ============================================
 
+export type CampSpecialty =
+  | "Wrestling"
+  | "BJJ"
+  | "Muay Thai"
+  | "Kickboxing"
+  | "Well-Rounded";
+
 export interface Team {
   id: string;
   name: string;
   headCoach: string;
   foundedWeek: number;
   reputation: number; // 0-100, grows slowly as members win
+  region: string; // primary country/region this camp draws from, e.g. "Brazil"
+  specialty: CampSpecialty; // what this camp is known for, driven by region
 }
 
 // ============================================
@@ -239,11 +265,27 @@ export interface ControversyEvent {
 // GAME STATE (root object, this is what gets persisted)
 // ============================================
 
+export interface RivalPromotion {
+  name: string;
+  abbreviation: string;
+  roster: Fighter[]; // fully separate from the player's roster/free agents
+}
+
+export interface FinanceEntry {
+  id: string;
+  week: number;
+  category: "gate" | "purses" | "sponsors" | "bonuses" | "scouting";
+  amount: number; // positive = income, negative = expense
+  description: string;
+}
+
 export interface GameState {
   promotion: Promotion;
   roster: Fighter[];
   freeAgents: Fighter[]; // unsigned fighters browsable from the Dashboard
   teams: Team[];
+  rival: RivalPromotion; // a competing promotion that moves on its own every week
+  financeLedger: FinanceEntry[]; // itemized income/expense history, so bankroll isn't just one opaque number
   cards: FightCard[]; // history AND future scheduled cards, keyed by card.week
   feed: FeedItem[];
   titleHistory: TitleReign[];

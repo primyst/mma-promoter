@@ -11,7 +11,7 @@ const NICKNAMES = [
   "No Mercy", "The Storm", "Reaper", "The Wall", "Vandal",
 ];
 
-const WEIGHT_CLASSES: WeightClass[] = [
+export const WEIGHT_CLASSES: WeightClass[] = [
   "Flyweight",
   "Bantamweight",
   "Featherweight",
@@ -87,6 +87,20 @@ const COACH_NAMES = [
  * belongs to one — plenty of real fighters train independently or at
  * small local gyms not worth modeling individually.
  */
+// Region determines camp specialty — grounded in real MMA geography and
+// tied to the country data fighters are already generated from. Camps
+// without a strong regional tradition default to well-rounded.
+const TEAM_REGIONS: { region: string; specialty: Team["specialty"] }[] = [
+  { region: "United States", specialty: "Well-Rounded" },
+  { region: "United States", specialty: "Well-Rounded" },
+  { region: "Brazil", specialty: "BJJ" },
+  { region: "Brazil", specialty: "BJJ" },
+  { region: "Russia", specialty: "Wrestling" }, // Dagestan/Chechnya-style wrestling tradition
+  { region: "Georgia", specialty: "Wrestling" },
+  { region: "Kazakhstan", specialty: "Wrestling" }, // Central Asian wrestling/sambo tradition
+  { region: "Netherlands", specialty: "Kickboxing" },
+];
+
 export function generateTeams(startWeek: number = 1): Team[] {
   return TEAM_NAMES.map((name, i) => ({
     id: crypto.randomUUID(),
@@ -94,7 +108,36 @@ export function generateTeams(startWeek: number = 1): Team[] {
     headCoach: COACH_NAMES[i],
     foundedWeek: startWeek,
     reputation: randomInRange(30, 60),
+    region: TEAM_REGIONS[i].region,
+    specialty: TEAM_REGIONS[i].specialty,
   }));
+}
+
+/**
+ * Assigns a fighter to a camp. Prefers a team whose region matches the
+ * fighter's own country (a Brazilian fighter training BJJ at a Brazilian
+ * camp, a Dagestani-style wrestler at a Russian/Georgian/Kazakh wrestling
+ * camp, etc.) — falls back to the least-crowded team so nobody goes
+ * without a camp just because their country isn't modeled.
+ */
+export function assignFighterToTeam(fighter: Fighter, teams: Team[], roster: Fighter[]): string | null {
+  if (teams.length === 0) return null;
+
+  const homeTeams = teams.filter((t) => t.region === fighter.country);
+  if (homeTeams.length > 0) {
+    return randomFrom(homeTeams).id;
+  }
+
+  // No camp matches this fighter's country — land them at whichever team
+  // currently has the fewest members, so camps stay roughly balanced.
+  const counts = new Map<string, number>(teams.map((t) => [t.id, 0]));
+  for (const f of roster) {
+    if (f.teamId && counts.has(f.teamId)) {
+      counts.set(f.teamId, (counts.get(f.teamId) ?? 0) + 1);
+    }
+  }
+  const sorted = [...teams].sort((a, b) => (counts.get(a.id) ?? 0) - (counts.get(b.id) ?? 0));
+  return sorted[0].id;
 }
 
 
@@ -198,6 +241,13 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
     draws: Math.random() > 0.9 ? 1 : 0,
     recentFights: [],
 
+    // Everyone starts at 0-0-0 in the player's promotion, regardless of
+    // backstory tier — a champion's pregenerated 20-1 record means
+    // nothing here until they actually defend that belt for real.
+    promotionWins: 0,
+    promotionLosses: 0,
+    promotionDraws: 0,
+
     striking: randomInRange(min, max),
     grappling: randomInRange(min, max),
     cardio: randomInRange(min, max),
@@ -244,9 +294,16 @@ export function generateFighter(options: GenerateFighterOptions = {}): Fighter {
         : randomInRange(1250, 1450),
 
     isChampion: false, // assigned later by assignRankings()
+    isInterimChampion: false,
     isRetired: false,
 
     potential: rollPotential(tier),
+    personality: randomFrom<Fighter["personality"]>([
+      "Loyal",
+      "Mercenary",
+      "Prideful",
+      "Humble",
+    ]),
   };
 }
 

@@ -313,6 +313,29 @@ export function generateFeedForCard(
 
     const narrative = classifyFight(winner, loser, outcome);
 
+    // Injury news — a real injury (not just the routine cooldown) is
+    // genuinely newsworthy and shouldn't get buried under the usual
+    // win/loss chatter.
+    if (outcome.loserInjury === "career_ending") {
+      items.push({
+        id: crypto.randomUUID(),
+        type: "news",
+        week,
+        authorName: "MMA Wire",
+        content: `Devastating news: ${loser.name} has announced their retirement after a career-ending injury suffered against ${winner.name}.`,
+        relatedFighterIds: [winner.id, loser.id],
+      });
+    } else if (outcome.loserInjury === "severe") {
+      items.push({
+        id: crypto.randomUUID(),
+        type: "news",
+        week,
+        authorName: "MMA Wire",
+        content: `${loser.name} suffered a serious injury in the loss to ${winner.name} and is facing an extended layoff.`,
+        relatedFighterIds: [winner.id, loser.id],
+      });
+    }
+
     // Winner tweet
     items.push({
       id: crypto.randomUUID(),

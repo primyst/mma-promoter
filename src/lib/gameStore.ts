@@ -5,11 +5,12 @@ import {
   FightCard,
   BookedFight,
   Promotion,
+  FinanceEntry,
   saveGame,
   loadGame,
 } from "@/types/game";
 import { simulateCard } from "./fightSim";
-import { validateCard } from "./booking";
+import { validateCard, computeCardReputationDelta } from "./booking";
 import { generateFeedForCard } from "./feedGenerator";
 import { generateAmbientNews } from "./ambientNews";
 import { updateTitleHistory, initTitleHistoryFromRoster } from "./titleHistory";
@@ -22,7 +23,9 @@ import { runFightWeek, resolveIncident } from "./fightWeekEvents";
 import { recalculateRankings } from "./rankings";
 import { decrementContract, evaluateContractOffer } from "./contracts";
 import { scoutForTalent as scoutForTalentLogic, ScoutTier } from "./scouting";
-import { generateFreeAgentPool } from "./generateRoster";
+import { generateFreeAgentPool, assignFighterToTeam } from "./generateRoster";
+import { generateRivalPromotion, tickRivalPromotion } from "./rivalPromotion";
+import { processInterimTitles } from "./interimTitles";
 import { developFighter } from "./developmentSystem";
 import { processWeeklyAgingAndRetirement } from "./retirement";
 import { getFameTier, FAME_GAIN } from "./fame";
@@ -126,6 +129,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   roster: [],
   freeAgents: [],
   teams: [],
+  rival: { name: "", abbreviation: "", roster: [] },
+  financeLedger: [],
   cards: [],
   feed: [],
   titleHistory: [],
@@ -148,6 +153,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roster,
       freeAgents,
       teams,
+      rival: generateRivalPromotion(),
+      financeLedger: [],
       cards: [],
       feed: [],
       titleHistory: initTitleHistoryFromRoster(roster, 1),
@@ -169,6 +176,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roster: saved.roster ?? [],
       freeAgents: saved.freeAgents ?? [],
       teams: saved.teams ?? [],
+      rival: saved.rival ?? generateRivalPromotion(),
+      financeLedger: saved.financeLedger ?? [],
       cards: saved.cards ?? [],
       feed: saved.feed ?? [],
       titleHistory: saved.titleHistory ?? [],
@@ -269,7 +278,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ---- week progression ----
   advanceWeek: () => {
-    const { cards, roster, freeAgents, promotion, feed, titleHistory, pendingControversy, pendingIncident } = get();
+    const { cards, roster, freeAgents, promotion, feed, titleHistory, pendingControversy, pendingIncident, financeLedger } = get();
 
     // Free agents age/develop on the same yearly cadence as the roster —
     // a scouted green prospect you passed on doesn't stay frozen in time.
@@ -277,6 +286,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const developedFreeAgents = shouldAgeFreeAgents
       ? freeAgents.map((f) => developFighter({ ...f, age: f.age + 1 }))
       : freeAgents;
+
+    // The rival promotion moves on its own every week, regardless of
+    // whether the player booked a card — this is what keeps the world
+    // feeling alive even in weeks the player doesn't act.
+    const { rival: tickedRival, freeAgents: freeAgentsAfterRival, feedItems: rivalFeedItems } =
+      tickRivalPromotion(get().rival, developedFreeAgents, promotion.currentWeek);
 
     const dueCard = cards.find(
       (c) => c.week === promotion.currentWeek && !c.isSimulated
@@ -434,12 +449,50 @@ export const useGameStore = create<GameStore>((set, get) => ({
           : f
       );
 
-      const revenue = estimateRevenue(dueCard, rosterWithFame);
+      const revenue = estimateRevenue(dueCard, rosterWithFame, promotion.reputation);
 
       const bonusCost =
         (cardBonuses.fotn ? BONUS_AMOUNTS.fotn : 0) +
         (cardBonuses.potn ? BONUS_AMOUNTS.potn : 0);
       const netRevenue = revenue - purseCost + sponsorPayout - bonusCost;
+
+      // Itemized finance entries for this card — real breakdown instead of
+      // just one net number, so the player can see where money actually
+      // came from and went.
+      const cardFinanceEntries: FinanceEntry[] = [
+        {
+          id: crypto.randomUUID(),
+          week: promotion.currentWeek,
+          category: "gate",
+          amount: revenue,
+          description: `Gate revenue — ${dueCard.eventName}`,
+        },
+        {
+          id: crypto.randomUUID(),
+          week: promotion.currentWeek,
+          category: "purses",
+          amount: -purseCost,
+          description: `Fighter purses — ${dueCard.eventName}`,
+        },
+      ];
+      if (sponsorPayout > 0) {
+        cardFinanceEntries.push({
+          id: crypto.randomUUID(),
+          week: promotion.currentWeek,
+          category: "sponsors",
+          amount: sponsorPayout,
+          description: `Sponsor payouts — ${dueCard.eventName}`,
+        });
+      }
+      if (bonusCost > 0) {
+        cardFinanceEntries.push({
+          id: crypto.randomUUID(),
+          week: promotion.currentWeek,
+          category: "bonuses",
+          amount: -bonusCost,
+          description: `Fight night bonuses — ${dueCard.eventName}`,
+        });
+      }
 
       // Bonus winners get a fan heat bump — a standout performance should
       // actually move the needle on how much fans want to see them again.
@@ -463,9 +516,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const updatedCards = [...cards];
       updatedCards[cardIndex] = updatedCard;
 
+      const cardReputationDelta = computeCardReputationDelta(dueCard.fights, preFightRosterMap);
+
       const updatedPromotion: Promotion = {
         ...promotion,
         money: promotion.money + netRevenue,
+        reputation: Math.max(0, Math.min(100, promotion.reputation + cardReputationDelta)),
         currentWeek: promotion.currentWeek + 1,
       };
 
@@ -580,7 +636,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         newTitleHistory,
         promotion.currentWeek
       );
-      const finalRoster = recalculateRankings(retirementResult.roster);
+      const rankedRoster = recalculateRankings(retirementResult.roster);
+      const { roster: finalRoster, feedItems: interimTitleFeedItems } = processInterimTitles(
+        rankedRoster,
+        promotion.currentWeek
+      );
 
       const newControversy = pendingControversy
         ? pendingControversy
@@ -588,10 +648,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       set({
         roster: finalRoster,
-        freeAgents: developedFreeAgents,
+        freeAgents: freeAgentsAfterRival,
+        rival: tickedRival,
         cards: updatedCards,
         promotion: updatedPromotion,
+        financeLedger: [...financeLedger, ...cardFinanceEntries].slice(-200),
         feed: [
+          ...interimTitleFeedItems,
+          ...rivalFeedItems,
           ...fightWeekFeedItems,
           ...promotionFeedItems,
           ...milestoneItems,
@@ -626,17 +690,39 @@ export const useGameStore = create<GameStore>((set, get) => ({
         titleHistory,
         promotion.currentWeek
       );
-      const finalTickedRoster = recalculateRankings(retirementResult.roster);
+      const rankedTickedRoster = recalculateRankings(retirementResult.roster);
+      const { roster: finalTickedRoster, feedItems: interimTitleFeedItems } =
+        processInterimTitles(rankedTickedRoster, promotion.currentWeek);
 
       const newControversy = pendingControversy
         ? pendingControversy
         : rollRandomControversy(finalTickedRoster, promotion.currentWeek);
 
+      // Dormancy decay — a promotion that hasn't run a card in a while
+      // loses credibility, same as any real org going quiet. Keeps
+      // reputation feeling alive even in stretches with no cards booked.
+      const lastSimulatedWeek = cards
+        .filter((c) => c.isSimulated)
+        .reduce((max, c) => Math.max(max, c.week), 0);
+      const weeksSinceLastCard = promotion.currentWeek - lastSimulatedWeek;
+      const dormancyDecay = weeksSinceLastCard > 4 ? 1 : 0;
+
       set({
         roster: finalTickedRoster,
-        freeAgents: developedFreeAgents,
-        promotion: { ...promotion, currentWeek: promotion.currentWeek + 1 },
-        feed: [...retirementResult.feedItems, ...ambientItems, ...feed],
+        freeAgents: freeAgentsAfterRival,
+        rival: tickedRival,
+        promotion: {
+          ...promotion,
+          reputation: Math.max(0, promotion.reputation - dormancyDecay),
+          currentWeek: promotion.currentWeek + 1,
+        },
+        feed: [
+          ...interimTitleFeedItems,
+          ...rivalFeedItems,
+          ...retirementResult.feedItems,
+          ...ambientItems,
+          ...feed,
+        ],
         titleHistory: retirementResult.titleHistory,
         pendingControversy: newControversy,
       });
@@ -755,7 +841,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return { outcome: "rejected" as const, message: "Fighter not found" };
     }
 
-    const result = evaluateContractOffer(fighter, fightsOffered, purseOffered);
+    const result = evaluateContractOffer(fighter, fightsOffered, purseOffered, promotion.reputation);
 
     if (result.outcome === "accepted") {
       const updatedRoster = roster.map((f) =>
@@ -785,7 +871,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   scoutForTalent: (weightClass, tier) => {
-    const { promotion } = get();
+    const { promotion, financeLedger } = get();
     const result = scoutForTalentLogic(weightClass, tier);
 
     if (promotion.money < result.cost) {
@@ -797,6 +883,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({
       promotion: { ...promotion, money: promotion.money - result.cost },
+      financeLedger: [
+        ...financeLedger,
+        {
+          id: crypto.randomUUID(),
+          week: promotion.currentWeek,
+          category: "scouting" as const,
+          amount: -result.cost,
+          description: `Scouting trip — ${weightClass} (${tier})`,
+        },
+      ].slice(-200),
     });
 
     persistCurrentState(get());
@@ -804,15 +900,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   signProspect: (candidate) => {
-    const { roster, feed, promotion } = get();
+    const { roster, feed, promotion, teams } = get();
+
+    const signedCandidate: Fighter = {
+      ...candidate,
+      teamId: assignFighterToTeam(candidate, teams, roster),
+    };
 
     const newFeedItem = {
       id: crypto.randomUUID(),
       type: "news" as const,
       week: promotion.currentWeek,
       authorName: "MMA Wire",
-      content: `${candidate.name} has signed with the promotion — ${candidate.weightClass} division.`,
-      relatedFighterIds: [candidate.id],
+      content: `${signedCandidate.name} has signed with the promotion — ${signedCandidate.weightClass} division.`,
+      relatedFighterIds: [signedCandidate.id],
     };
 
     const promotionHandle = getPromotionHandle(promotion.name);
@@ -822,12 +923,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       week: promotion.currentWeek,
       authorName: promotion.name,
       authorHandle: "@" + promotionHandle,
-      content: newSigningPost(candidate.name, candidate.weightClass),
-      relatedFighterIds: [candidate.id],
+      content: newSigningPost(signedCandidate.name, signedCandidate.weightClass),
+      relatedFighterIds: [signedCandidate.id],
     };
 
     set({
-      roster: [...roster, candidate],
+      roster: [...roster, signedCandidate],
       feed: [hypePost, newFeedItem, ...feed],
     });
 
@@ -835,13 +936,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   signFreeAgent: (fighterId) => {
-    const { roster, freeAgents, feed, promotion } = get();
+    const { roster, freeAgents, feed, promotion, teams } = get();
     const candidate = freeAgents.find((f) => f.id === fighterId);
     if (!candidate) return;
 
     const signedCandidate: Fighter = {
       ...candidate,
       contractFightsRemaining: candidate.contractFightsRemaining ?? 4,
+      teamId: assignFighterToTeam(candidate, teams, roster),
     };
 
     const newFeedItem = {
@@ -968,6 +1070,8 @@ function persistCurrentState(state: GameStore) {
     roster: state.roster,
     freeAgents: state.freeAgents,
     teams: state.teams,
+    rival: state.rival,
+    financeLedger: state.financeLedger,
     cards: state.cards,
     feed: state.feed,
     titleHistory: state.titleHistory,
@@ -977,10 +1081,11 @@ function persistCurrentState(state: GameStore) {
 }
 
 /**
- * Rough revenue model for v0.1: base gate + per-fight fan heat bonus,
- * doubled for title fights. Refined once sponsors/PPV land in v0.3.
+ * Rough revenue model: base gate + per-fight fan heat bonus, doubled for
+ * title fights, scaled overall by promotion reputation — a well-regarded
+ * org draws a bigger house on the same card than a shaky one.
  */
-function estimateRevenue(card: FightCard, roster: Fighter[]): number {
+function estimateRevenue(card: FightCard, roster: Fighter[], reputation: number): number {
   const rosterMap = new Map(roster.map((f) => [f.id, f]));
   let revenue = 50_000; // base gate
 
@@ -992,5 +1097,6 @@ function estimateRevenue(card: FightCard, roster: Fighter[]): number {
     revenue += combinedHeat * 500 * multiplier;
   }
 
-  return Math.round(revenue);
+  const reputationMultiplier = 0.7 + (reputation / 100) * 0.6; // 0 rep -> 0.7x, 100 rep -> 1.3x
+  return Math.round(revenue * reputationMultiplier);
 }

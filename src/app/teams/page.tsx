@@ -39,6 +39,9 @@ export default function TeamsScreen() {
                 </span>
               </div>
               <p className="text-xs text-neutral-500 mb-2">{team.headCoach}</p>
+              <p className="text-[10px] text-neutral-600 mb-2">
+                {team.region} · {team.specialty}
+              </p>
               <div className="flex items-center gap-3 text-xs text-neutral-400">
                 <span className="flex items-center gap-1">
                   <Users className="w-3.5 h-3.5" /> {members.length} fighters
