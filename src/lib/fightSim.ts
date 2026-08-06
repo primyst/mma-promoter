@@ -324,14 +324,27 @@ export function applyFightResult(
   // beat someone ranked clearly above you and you visibly climb, on top of
   // whatever Elo alone would give you. Lower ranking number = better spot,
   // so a positive gap here means the winner reached UP the ladder.
+  //
+  // An unranked fighter (a debut, a fresh signee) is treated as sitting at
+  // the bottom of a deep division for this math — otherwise beating a #1
+  // contender while unranked yourself gave NO ladder bonus at all, since
+  // the old check required both fighters to already have a number. That's
+  // exactly backwards: an unknown KO'ing the #1 contender is the biggest
+  // possible upset, not a non-event.
+  const UNRANKED_SENTINEL = 50;
+  const winnerEffectiveRank = winner.ranking ?? UNRANKED_SENTINEL;
+  const loserEffectiveRank = loser.ranking ?? UNRANKED_SENTINEL;
   const rankGap =
-    winner.ranking != null && loser.ranking != null && loser.ranking < winner.ranking
-      ? winner.ranking - loser.ranking
-      : 0;
-  const ladderBonus = rankGap * 4;
+    loserEffectiveRank < winnerEffectiveRank ? winnerEffectiveRank - loserEffectiveRank : 0;
+  const ladderBonus = Math.min(rankGap * 4, 40); // capped — one fight shouldn't be able to guarantee an infinite jump
+
+  // Symmetric on the way down: losing to someone ranked well below you (or
+  // a total unknown) should cost real ground on top of the standard Elo
+  // dip, not just whatever the raw rating gap implied.
+  const upsetLossPenalty = rankGap >= 5 ? Math.min(rankGap * 2, 20) : 0;
 
   const winnerEloChange = Math.round(K * (1 - expectedWinner) + ladderBonus);
-  const loserEloChange = Math.round(K * (0 - expectedLoser));
+  const loserEloChange = Math.round(K * (0 - expectedLoser) - upsetLossPenalty);
 
   const updatedWinner: Fighter = {
     ...winner,
